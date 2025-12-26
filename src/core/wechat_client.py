@@ -4,8 +4,16 @@
 """
 import time
 from typing import List, Dict, Optional
-from wxauto import WeChat
 from ..utils import log
+
+# 尝试导入wxauto，如果失败则设为None
+try:
+    from wxauto import WeChat
+    WXAUTO_AVAILABLE = True
+except ImportError:
+    WeChat = None
+    WXAUTO_AVAILABLE = False
+    log.warning("wxauto未安装，微信功能不可用。使用交互模式测试：python src/main.py --mode interactive")
 
 
 class WeChatClient:
@@ -13,6 +21,13 @@ class WeChatClient:
 
     def __init__(self):
         """初始化微信客户端"""
+        if not WXAUTO_AVAILABLE:
+            raise ImportError(
+                "wxauto未安装，无法使用微信功能。\n"
+                "安装方法：pip install wxauto -i https://pypi.org/simple\n"
+                "或使用交互模式测试：python src/main.py --mode interactive"
+            )
+
         self.wx = None
         self.last_messages = {}  # 用于消息去重
         self._init_client()

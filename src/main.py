@@ -112,42 +112,72 @@ class AILive:
 
     def run_interactive(self):
         """交互式运行模式（用于测试）"""
-        if not self.initialize():
-            log.error("初始化失败，程序退出")
-            return
+        try:
+            log.info("=" * 50)
+            log.info("AILive - 微信AI女友机器人")
+            log.info("=" * 50)
 
-        log.info("=" * 50)
-        log.info("交互式测试模式")
-        log.info("输入消息测试AI回复，输入 'quit' 退出")
-        log.info("=" * 50)
+            # 交互模式不需要微信客户端，只初始化AI引擎
+            log.info("正在初始化AI引擎...")
+            self.ai_engine = AIEngine()
 
-        test_user = "测试用户"
+            # 创建一个简化的消息处理器（不需要微信客户端）
+            log.info("正在初始化消息处理器...")
+            from src.utils import ContextManager, config
+            self.context_manager = ContextManager(
+                max_messages=config.get('ai.max_context_messages', 20)
+            )
 
-        while True:
-            try:
-                user_input = input("\n你: ").strip()
+            log.info("初始化成功！")
+            log.info("=" * 50)
+            log.info("交互式测试模式")
+            log.info("输入消息测试AI回复，输入 'quit' 退出")
+            log.info("=" * 50)
 
-                if user_input.lower() in ['quit', 'exit', 'q']:
-                    log.info("退出交互模式")
+            test_user = "测试用户"
+
+            while True:
+                try:
+                    user_input = input("\n你: ").strip()
+
+                    if user_input.lower() in ['quit', 'exit', 'q']:
+                        log.info("退出交互模式")
+                        break
+
+                    if not user_input:
+                        continue
+
+                    # 添加用户消息到上下文
+                    self.context_manager.add_message(test_user, "user", user_input)
+
+                    # 获取对话上下文
+                    context = self.context_manager.get_context(test_user)
+
+                    # 生成AI回复
+                    reply = self.ai_engine.generate_response(
+                        message=user_input,
+                        context=context[:-1],  # 不包含刚添加的消息
+                        user_id=test_user
+                    )
+
+                    # 添加AI回复到上下文
+                    self.context_manager.add_message(test_user, "assistant", reply)
+
+                    if reply:
+                        print(f"\nAI女友: {reply}")
+                    else:
+                        print("\n[无回复]")
+
+                except KeyboardInterrupt:
+                    log.info("\n退出交互模式")
                     break
 
-                if not user_input:
-                    continue
+                except Exception as e:
+                    log.error(f"错误: {e}")
 
-                # 处理消息
-                reply = self.message_handler.process_message(test_user, user_input)
-
-                if reply:
-                    print(f"\nAI女友: {reply}")
-                else:
-                    print("\n[无回复]")
-
-            except KeyboardInterrupt:
-                log.info("\n退出交互模式")
-                break
-
-            except Exception as e:
-                log.error(f"错误: {e}")
+        except Exception as e:
+            log.error(f"初始化失败: {e}")
+            return
 
 
 def main():
