@@ -19,7 +19,8 @@ def get_wechat_version():
         key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Tencent\WeChat")
         version, _ = winreg.QueryValueEx(key, "Version")
         winreg.CloseKey(key)
-        return version
+        # 转换为字符串
+        return str(version) if version else None
     except:
         return None
 
