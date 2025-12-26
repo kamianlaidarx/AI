@@ -9,7 +9,7 @@ wechat:
 # AI配置
 ai:
   provider: "doubao"         # AI提供商：doubao/claude/openai
-  model: "doubao-pro-32k"    # 模型名称
+  model: "ep-20250101-xxxxx" # 豆包推理接入点ID（Endpoint ID），请替换为你的实际ID
   max_tokens: 1000           # 最大生成token数
   temperature: 0.8           # 温度参数（0-1）
   max_context_messages: 20   # 最大上下文消息数

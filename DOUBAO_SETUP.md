@@ -1,23 +1,29 @@
 # 豆包API配置指南
 
-## 1. 获取豆包API密钥
+## 1. 获取豆包API密钥和Endpoint ID
 
 ### 步骤：
 1. 访问火山引擎控制台：https://console.volcengine.com/ark
 2. 注册/登录账号
 3. 进入"豆包大模型"服务
-4. 创建API密钥
-5. 选择模型并获取endpoint ID
+4. 创建推理接入点（Inference Endpoint）
+5. 选择你想使用的模型（如 doubao-pro-32k）
+6. 获取以下信息：
+   - **API Key**（API密钥）
+   - **Endpoint ID**（推理接入点ID，格式如 `ep-20250101-xxxxx`）
+
+⚠️ **重要**：豆包API使用 Endpoint ID 而不是模型名称！
 
 ## 2. 可用模型
 
 豆包提供多个模型，推荐使用：
 
-| 模型名称 | 说明 | 适用场景 |
-|---------|------|---------|
-| `doubao-pro-32k` | 专业版，32K上下文 | 推荐使用，对话质量高 |
-| `doubao-lite-32k` | 轻量版，32K上下文 | 成本较低，速度快 |
-| `doubao-pro-128k` | 专业版，128K上下文 | 需要超长上下文时使用 |
+| 模型名称 | 说明 | 上下文长度 | 适用场景 |
+|---------|------|-----------|---------|
+| `doubao-pro-32k` | 专业版 | 32K | 推荐使用，对话质量高 |
+| `doubao-lite-32k` | 轻量版 | 32K | 成本较低，速度快 |
+| `doubao-pro-128k` | 专业版 | 128K | 需要超长上下文时使用 |
+| `doubao-vision-pro-32k` | 视觉理解版 | 32K | 支持图片理解 |
 
 ## 3. 配置步骤
 
@@ -30,27 +36,47 @@ copy config\.env.example config\.env
 
 ```env
 # 填入你的豆包API密钥
-DOUBAO_API_KEY=your_actual_api_key_here
+DOUBAO_API_KEY=你的API密钥
 
 # API Base URL（一般不需要修改）
 DOUBAO_API_BASE=https://ark.cn-beijing.volces.com/api/v3
 ```
 
-### 3.3 确认 config\config.yaml 配置
+### 3.3 编辑 config\config.yaml 文件
 
 ```yaml
 ai:
   provider: "doubao"         # 使用豆包
-  model: "doubao-pro-32k"    # 模型名称（使用你的endpoint ID）
+  model: "ep-20250101-xxxxx" # 填入你的Endpoint ID
   max_tokens: 1000
   temperature: 0.8
 ```
 
-**重要**：`model` 字段应该填写你在火山引擎控制台获取的 **endpoint ID**，而不是模型名称。
+⚠️ **关键**：`model` 字段必须填写你在火山引擎控制台创建的 **Endpoint ID**，而不是模型名称！
 
-例如：
+### 示例配置
+
+假设你在火山引擎控制台：
+- 创建了一个推理接入点
+- 选择了 `doubao-pro-32k` 模型
+- 获得的 Endpoint ID 是 `ep-20250126-abcde`
+- 获得的 API Key 是 `546f43b8-c915-4587-b7e8-074ee9b1757d`
+
+那么配置应该是：
+
+**config/.env**:
+```env
+DOUBAO_API_KEY=546f43b8-c915-4587-b7e8-074ee9b1757d
+DOUBAO_API_BASE=https://ark.cn-beijing.volces.com/api/v3
+```
+
+**config/config.yaml**:
 ```yaml
-model: "ep-20231201-xxxxx"  # 你的实际endpoint ID
+ai:
+  provider: "doubao"
+  model: "ep-20250126-abcde"  # 你的实际Endpoint ID
+  max_tokens: 1000
+  temperature: 0.8
 ```
 
 ## 4. 测试配置
