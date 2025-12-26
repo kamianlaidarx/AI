@@ -1,5 +1,5 @@
 # AI Models
-openai>=1.0.0
+openai>=1.0.0,<1.50.0
 
 # Configuration Management
 pyyaml>=6.0.1
