@@ -8,12 +8,23 @@ from ..utils import log
 
 # 尝试导入wxauto，如果失败则设为None
 try:
+    # 添加类型注解兼容性支持
+    import sys
+    if sys.version_info < (3, 9):
+        # Python 3.8及以下版本需要这个
+        from typing import List as _List
+        import typing
+        if not hasattr(typing, 'get_origin'):
+            # 为旧版本Python添加兼容性
+            pass
+
     from wxauto import WeChat
     WXAUTO_AVAILABLE = True
-except ImportError:
+except (ImportError, TypeError) as e:
     WeChat = None
     WXAUTO_AVAILABLE = False
-    log.warning("wxauto未安装，微信功能不可用。使用交互模式测试：python src/main.py --mode interactive")
+    log.warning(f"wxauto未安装或版本不兼容: {e}")
+    log.warning("使用交互模式测试：python src/main.py --mode interactive")
 
 
 class WeChatClient:
@@ -23,9 +34,10 @@ class WeChatClient:
         """初始化微信客户端"""
         if not WXAUTO_AVAILABLE:
             raise ImportError(
-                "wxauto未安装，无法使用微信功能。\n"
-                "安装方法：pip install wxauto -i https://pypi.org/simple\n"
-                "或使用交互模式测试：python src/main.py --mode interactive"
+                "wxauto未安装或版本不兼容，无法使用微信功能。\n"
+                "解决方案：\n"
+                "1. 运行修复脚本: python fix_wxauto.py\n"
+                "2. 或使用交互模式测试：python src/main.py --mode interactive"
             )
 
         self.wx = None
