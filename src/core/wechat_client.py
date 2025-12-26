@@ -62,7 +62,17 @@ class WeChatClient:
         """初始化微信客户端"""
         try:
             if self.backend == 'wcferry':
-                self._init_wcferry()
+                try:
+                    self._init_wcferry()
+                except Exception as e:
+                    log.warning(f"WeChatFerry 初始化失败: {e}")
+                    log.info("尝试使用 wxauto...")
+                    # 切换到 wxauto
+                    if WeChat is not None:
+                        self.backend = 'wxauto'
+                        self._init_wxauto()
+                    else:
+                        raise Exception("WeChatFerry 和 wxauto 都不可用")
             elif self.backend == 'wxauto':
                 self._init_wxauto()
             else:
