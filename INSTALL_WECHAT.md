@@ -12,7 +12,7 @@
 pip install wxauto -i https://pypi.org/simple
 ```
 
-### 方法2：从GitHub安装
+### 方法2：从GitHub安装 
 
 ```bash
 pip install git+https://github.com/cluic/wxauto.git
