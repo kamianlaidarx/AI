@@ -81,14 +81,16 @@ class WeChatClient:
         # 从配置文件读取微信路径（如果有）
         wechat_path = config.get('wechat.path', None)
 
-        # 如果配置了路径，设置环境变量
+        # 如果配置了路径，设置环境变量（WeChatFerry会读取这个环境变量）
         if wechat_path and os.path.exists(wechat_path):
             log.info(f"使用配置的微信路径: {wechat_path}")
+            # 设置环境变量，WeChatFerry会从这里读取
+            os.environ['WECHAT_DIR'] = wechat_path
+            # 也尝试设置这个
             os.environ['WECHAT_PATH'] = wechat_path
-            self.client = Wcf(wechat_path=wechat_path)
-        else:
-            # 使用默认方式初始化
-            self.client = Wcf()
+
+        # 初始化 WeChatFerry（不传参数）
+        self.client = Wcf()
 
         # 检查是否登录
         if not self.client.is_login():
