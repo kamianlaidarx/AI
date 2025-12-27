@@ -77,6 +77,8 @@ class AILive:
 
         # 主循环
         check_interval = 2  # 检查消息的间隔（秒）
+        proactive_check_counter = 0  # 主动消息检查计数器
+        proactive_check_interval = 300  # 每5分钟检查一次主动消息（300秒）
 
         while self.running:
             try:
@@ -91,6 +93,12 @@ class AILive:
                     # 过滤系统消息和自己发送的消息
                     if sender and content:
                         self.message_handler.handle_message(sender, content)
+
+                # 定期检查是否需要主动发送消息
+                proactive_check_counter += check_interval
+                if proactive_check_counter >= proactive_check_interval:
+                    self.message_handler.check_and_send_proactive_messages()
+                    proactive_check_counter = 0
 
                 # 等待一段时间再检查
                 time.sleep(check_interval)

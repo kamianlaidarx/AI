@@ -8,6 +8,7 @@ from typing import Optional
 from ..utils import log, config, ContextManager
 from .wechat_client import WeChatClient
 from .ai_engine import AIEngine
+from .proactive_chat import ProactiveChatManager
 
 
 class MessageHandler:
@@ -32,6 +33,19 @@ class MessageHandler:
         self.reply_delay = config.get('wechat.reply_delay', [1, 3])
         self.whitelist = config.get('filters.whitelist', [])
         self.blacklist = config.get('filters.blacklist', [])
+
+        # 初始化主动对话管理器
+        proactive_config = config.get('proactive_chat', {
+            'enabled': True,
+            'idle_time': 3600,  # 1小时
+            'min_interval': 1800,  # 30分钟
+            'max_daily_proactive': 3
+        })
+        self.proactive_chat = ProactiveChatManager(
+            ai_engine=self.ai,
+            context_manager=self.context_manager,
+            config=proactive_config
+        )
 
         log.info("消息处理器初始化成功")
 
@@ -172,6 +186,9 @@ class MessageHandler:
         """
         log.info(f"收到来自 {sender} 的消息: {content[:50]}...")
 
+        # 更新最后消息时间（用于主动对话判断）
+        self.proactive_chat.update_last_message_time(sender)
+
         # 处理消息
         reply = self.process_message(sender, content)
 
@@ -203,3 +220,30 @@ class MessageHandler:
         """
         self.context_manager.save_conversation(user_id)
         log.info(f"已保存 {user_id} 的对话历史")
+
+    def check_and_send_proactive_messages(self):
+        """
+        检查并发送主动消息
+        应该在主循环中定期调用
+        """
+        # 获取所有有对话历史的用户
+        for user_id in list(self.proactive_chat.last_message_time.keys()):
+            # 检查是否应该主动聊天
+            if self.proactive_chat.should_initiate_chat(user_id):
+                # 生成主动消息
+                message = self.proactive_chat.generate_proactive_message(user_id)
+
+                if message:
+                    # 发送主动消息
+                    success = self.send_reply(user_id, message)
+
+                    if success:
+                        # 记录主动聊天
+                        self.proactive_chat.record_proactive_chat(user_id)
+
+                        # 添加到上下文
+                        self.context_manager.add_message(user_id, "assistant", message)
+
+                        log.info(f"已向 {user_id} 主动发送消息: {message[:50]}...")
+                    else:
+                        log.error(f"向 {user_id} 发送主动消息失败")
