@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AILive 管理面板</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">
+                <i class="bi bi-robot"></i> AILive 管理面板
+            </span>
+            <span class="navbar-text text-white">
+                <i class="bi bi-circle-fill text-success" id="status-indicator"></i>
+                <span id="status-text">运行中</span>
+            </span>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row">
+            <!-- 侧边栏 -->
+            <div class="col-md-2">
+                <div class="list-group">
+                    <a href="#ai-config" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                        <i class="bi bi-cpu"></i> AI配置
+                    </a>
+                    <a href="#persona-config" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="bi bi-person-heart"></i> 人格配置
+                    </a>
+                    <a href="#wechat-config" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                        <i class="bi bi-wechat"></i> 微信配置
+                    </a>
+                </div>
+            </div>
+
+            <!-- 主内容区 -->
+            <div class="col-md-10">
+                <div class="tab-content">
+                    <!-- AI配置 -->
+                    <div class="tab-pane fade show active" id="ai-config">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-cpu"></i> AI配置</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="ai-config-form">
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">AI提供商</label>
+                                        <div class="col-sm-10">
+                                            <select class="form-select" id="ai-provider" name="provider">
+                                                <option value="doubao">豆包 (Doubao)</option>
+                                                <option value="claude">Claude</option>
+                                                <option value="openai">OpenAI</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">模型/Endpoint ID</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="ai-model" name="model"
+                                                   placeholder="例如: ep-20251226192412-8kff2">
+                                            <div class="form-text">豆包填写Endpoint ID，其他填写模型名称</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">Temperature</label>
+                                        <div class="col-sm-10">
+                                            <input type="range" class="form-range" id="ai-temperature" name="temperature"
+                                                   min="0" max="1" step="0.1" value="0.8">
+                                            <div class="form-text">当前值: <span id="temperature-value">0.8</span> (0=保守, 1=创造性)</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">最大Token数</label>
+                                        <div class="col-sm-10">
+                                            <input type="number" class="form-control" id="ai-max-tokens" name="max_tokens"
+                                                   value="1000" min="100" max="4000">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">上下文消息数</label>
+                                        <div class="col-sm-10">
+                                            <input type="number" class="form-control" id="ai-max-context" name="max_context_messages"
+                                                   value="20" min="5" max="50">
+                                            <div class="form-text">保留的历史消息数量</div>
+                                        </div>
+                                    </div>
+
+                                    <hr>
+                                    <h6>API密钥配置</h6>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">豆包 API Key</label>
+                                        <div class="col-sm-10">
+                                            <input type="password" class="form-control" id="doubao-api-key"
+                                                   placeholder="输入豆包API密钥">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">豆包 API Base</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="doubao-api-base"
+                                                   value="https://ark.cn-beijing.volces.com/api/v3">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">Claude API Key</label>
+                                        <div class="col-sm-10">
+                                            <input type="password" class="form-control" id="claude-api-key"
+                                                   placeholder="输入Claude API密钥（可选）">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">OpenAI API Key</label>
+                                        <div class="col-sm-10">
+                                            <input type="password" class="form-control" id="openai-api-key"
+                                                   placeholder="输入OpenAI API密钥（可选）">
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-sm-10 offset-sm-2">
+                                            <button type="button" class="btn btn-secondary me-2" id="test-api-btn">
+                                                <i class="bi bi-plug"></i> 测试连接
+                                            </button>
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-save"></i> 保存配置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 人格配置 -->
+                    <div class="tab-pane fade" id="persona-config">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-person-heart"></i> 人格配置</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="persona-config-form">
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">名字</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="persona-name" name="name"
+                                                   placeholder="例如: 小雨">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">年龄</label>
+                                        <div class="col-sm-10">
+                                            <input type="number" class="form-control" id="persona-age" name="age"
+                                                   value="22" min="18" max="30">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">性别</label>
+                                        <div class="col-sm-10">
+                                            <select class="form-select" id="persona-gender" name="gender">
+                                                <option value="女">女</option>
+                                                <option value="男">男</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">职业</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="persona-occupation" name="occupation"
+                                                   placeholder="例如: 大学生">
+                                        </div>
+                                    </div>
+
+                                    <hr>
+                                    <h6>性格特征</h6>
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">性格特点</label>
+                                        <div class="col-sm-10">
+                                            <textarea class="form-control" id="persona-traits" rows="3"
+                                                      placeholder="每行一个特点，例如：&#10;温柔体贴&#10;善解人意&#10;活泼开朗"></textarea>
+                                            <div class="form-text">每行输入一个性格特点</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">兴趣爱好</label>
+                                        <div class="col-sm-10">
+                                            <textarea class="form-control" id="persona-interests" rows="3"
+                                                      placeholder="每行一个爱好，例如：&#10;看电影&#10;听音乐&#10;旅游"></textarea>
+                                            <div class="form-text">每行输入一个兴趣爱好</div>
+                                        </div>
+                                    </div>
+
+                                    <hr>
+                                    <h6>说话风格</h6>
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">语气</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="persona-tone"
+                                                   placeholder="例如: 温柔亲切">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">语气词</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="persona-particles"
+                                                   placeholder="用逗号分隔，例如: 呀,哦,呢,啦">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">常用表达</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="persona-expressions"
+                                                   placeholder="用逗号分隔，例如: 嘻嘻,哈哈,嗯嗯">
+                                        </div>
+                                    </div>
+
+                                    <hr>
+                                    <h6>关系设定</h6>
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">角色</label>
+                                        <div class="col-sm-10">
+                                            <select class="form-select" id="persona-role">
+                                                <option value="女朋友">女朋友</option>
+                                                <option value="朋友">朋友</option>
+                                                <option value="助手">助手</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">亲密程度</label>
+                                        <div class="col-sm-10">
+                                            <select class="form-select" id="persona-intimacy">
+                                                <option value="亲密">亲密</option>
+                                                <option value="友好">友好</option>
+                                                <option value="正式">正式</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">行为特征</label>
+                                        <div class="col-sm-10">
+                                            <textarea class="form-control" id="persona-behaviors" rows="3"
+                                                      placeholder="每行一个行为特征，例如：&#10;关心对方的日常&#10;分享自己的生活&#10;偶尔撒娇"></textarea>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-sm-10 offset-sm-2">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-save"></i> 保存配置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 微信配置 -->
+                    <div class="tab-pane fade" id="wechat-config">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="bi bi-wechat"></i> 微信配置</h5>
+                            </div>
+                            <div class="card-body">
+                                <form id="wechat-config-form">
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">微信路径</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="wechat-path" name="path"
+                                                   placeholder="C:\Program Files\Tencent\Weixin">
+                                            <div class="form-text">微信安装目录（不是exe文件）</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">自动回复</label>
+                                        <div class="col-sm-10">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="wechat-auto-reply"
+                                                       name="auto_reply" checked>
+                                                <label class="form-check-label" for="wechat-auto-reply">
+                                                    启用自动回复
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">回复延迟（秒）</label>
+                                        <div class="col-sm-5">
+                                            <input type="number" class="form-control" id="wechat-delay-min"
+                                                   placeholder="最小" value="1" min="0" max="10">
+                                        </div>
+                                        <div class="col-sm-5">
+                                            <input type="number" class="form-control" id="wechat-delay-max"
+                                                   placeholder="最大" value="3" min="0" max="10">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">最大消息长度</label>
+                                        <div class="col-sm-10">
+                                            <input type="number" class="form-control" id="wechat-max-length"
+                                                   name="max_message_length" value="500" min="100" max="2000">
+                                        </div>
+                                    </div>
+
+                                    <hr>
+                                    <h6>过滤器设置</h6>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">白名单</label>
+                                        <div class="col-sm-10">
+                                            <textarea class="form-control" id="wechat-whitelist" rows="3"
+                                                      placeholder="每行一个微信昵称，为空则接受所有人"></textarea>
+                                            <div class="form-text">只回复白名单中的用户（为空则接受所有）</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">黑名单</label>
+                                        <div class="col-sm-10">
+                                            <textarea class="form-control" id="wechat-blacklist" rows="3"
+                                                      placeholder="每行一个微信昵称"></textarea>
+                                            <div class="form-text">不回复黑名单中的用户</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">关键词过滤</label>
+                                        <div class="col-sm-10">
+                                            <textarea class="form-control" id="wechat-keywords" rows="3"
+                                                      placeholder="每行一个关键词"></textarea>
+                                            <div class="form-text">包含这些关键词的消息不回复</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-sm-10 offset-sm-2">
+                                            <button type="submit" class="btn btn-primary">
+                                                <i class="bi bi-save"></i> 保存配置
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast通知 -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="notification-toast" class="toast" role="alert">
+            <div class="toast-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong class="me-auto">通知</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

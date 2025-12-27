@@ -12,6 +12,7 @@
 - 📝 完善的日志系统
 - ⚙️ 灵活的配置管理
 - 🔄 支持多种微信版本（wxauto for 3.9 / WeChatFerry for 4.0+）
+- 🌐 **Web管理面板** - 可视化配置管理界面
 
 ## 📋 环境要求
 
@@ -84,6 +85,20 @@ ai:
 
 ### 7. 运行程序
 
+**方式一：使用Web管理面板（推荐）**
+
+```bash
+# 启动Web管理面板
+python src/web/app.py
+
+# 或使用启动脚本
+start_web_panel.bat
+```
+
+访问 http://127.0.0.1:5000 打开管理面板，在界面中配置所有参数。
+
+**方式二：命令行模式**
+
 ```bash
 # 正常模式（连接微信）
 python src/main.py
@@ -108,6 +123,11 @@ AILive/
 │   │   ├── config.py          # 配置管理
 │   │   ├── logger.py          # 日志系统
 │   │   └── context_manager.py # 上下文管理
+│   ├── web/                   # Web管理面板
+│   │   ├── app.py             # Flask应用
+│   │   ├── api/               # API路由
+│   │   ├── static/            # 静态文件（CSS/JS）
+│   │   └── templates/         # HTML模板
 │   └── main.py                # 主程序入口
 ├── config/                    # 配置文件
 │   ├── config.yaml            # 主配置
@@ -250,6 +270,60 @@ filters:
   keywords_filter: ["广告", "推广"]  # 包含这些关键词的消息不回复
 ```
 
+## 🌐 Web管理面板
+
+### 启动管理面板
+
+```bash
+# 方式一：直接运行
+python src/web/app.py
+
+# 方式二：使用启动脚本
+start_web_panel.bat
+```
+
+访问地址：http://127.0.0.1:5000
+
+### 功能特性
+
+**1. AI配置页面**
+- 选择AI提供商（豆包/Claude/OpenAI）
+- 配置模型参数（Temperature、Max Tokens等）
+- 管理API密钥
+- 测试API连接
+
+**2. 人格配置页面**
+- 设置基本信息（姓名、年龄、性别、职业）
+- 配置性格特征和兴趣爱好
+- 自定义说话风格（语气、语气词、常用表达）
+- 设置关系角色和行为特征
+
+**3. 微信配置页面**
+- 设置微信路径
+- 配置自动回复参数
+- 管理黑白名单
+- 设置关键词过滤
+
+### 使用说明
+
+1. **首次使用**：启动面板后，依次配置AI、人格和微信设置
+2. **修改配置**：在对应页面修改后点击"保存配置"
+3. **测试连接**：在AI配置页面可以测试API连接是否正常
+4. **实时生效**：配置保存后，重启主程序即可生效
+
+### API端点
+
+管理面板提供以下RESTful API：
+
+- `GET /api/config/ai` - 获取AI配置
+- `POST /api/config/ai` - 保存AI配置
+- `GET /api/config/persona` - 获取人格配置
+- `POST /api/config/persona` - 保存人格配置
+- `GET /api/config/wechat` - 获取微信配置
+- `POST /api/config/wechat` - 保存微信配置
+- `POST /api/config/test` - 测试API连接
+- `GET /health` - 健康检查
+
 ## 🔧 微信版本兼容性
 
 本项目支持两种微信自动化库：
@@ -319,7 +393,15 @@ A:
 A: 日志文件保存在 `logs/ailive.log`，可以设置日志级别为 DEBUG 查看详细信息。
 
 ### Q: 如何切换AI提供商？
-A: 编辑 `config/config.yaml`，修改 `ai.provider` 为 `doubao`、`claude` 或 `openai`，并在 `.env` 中配置相应的API密钥。
+A:
+- **使用Web管理面板**：访问 http://127.0.0.1:5000，在AI配置页面选择提供商并保存
+- **手动编辑**：编辑 `config/config.yaml`，修改 `ai.provider` 为 `doubao`、`claude` 或 `openai`，并在 `.env` 中配置相应的API密钥
+
+### Q: Web管理面板无法访问？
+A:
+- 确保Flask已安装：`pip install flask flask-cors`
+- 检查端口5000是否被占用
+- 查看启动日志中的错误信息
 
 ## 🎯 获取豆包API密钥
 
@@ -337,11 +419,12 @@ A: 编辑 `config/config.yaml`，修改 `ai.provider` 为 `doubao`、`claude` �
 - [x] 支持微信 3.9 和 4.0+
 - [x] 人格系统
 - [x] 上下文管理
+- [x] **Web管理界面**
 - [ ] 支持群聊消息
 - [ ] 添加图片识别能力
 - [ ] 添加语音消息处理
-- [ ] Web管理界面
 - [ ] 支持更多AI模型
+- [ ] 对话历史查看和导出
 
 ## 📄 许可证
 
