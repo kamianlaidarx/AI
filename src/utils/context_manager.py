@@ -27,6 +27,10 @@ class ContextManager:
         # 使用deque实现滑动窗口
         self.contexts: Dict[str, deque] = {}
 
+        # 自动保存间隔（消息数）
+        self.auto_save_interval = 5
+        self.message_counts: Dict[str, int] = {}
+
     def add_message(self, user_id: str, role: str, content: str):
         """
         添加消息到上下文
@@ -36,6 +40,12 @@ class ContextManager:
             role: 角色（user/assistant）
             content: 消息内容
         """
+        # 如果是新用户，尝试加载历史对话
+        if user_id not in self.contexts:
+            self._load_latest_conversation(user_id)
+            self.message_counts[user_id] = 0
+
+        # 如果加载失败或没有历史，创建新的上下文
         if user_id not in self.contexts:
             self.contexts[user_id] = deque(maxlen=self.max_messages)
 
@@ -46,6 +56,12 @@ class ContextManager:
         }
 
         self.contexts[user_id].append(message)
+        self.message_counts[user_id] += 1
+
+        # 自动保存（每N条消息保存一次）
+        if self.message_counts[user_id] >= self.auto_save_interval:
+            self._auto_save_conversation(user_id)
+            self.message_counts[user_id] = 0
 
     def get_context(self, user_id: str) -> List[Dict[str, Any]]:
         """
@@ -129,3 +145,63 @@ class ContextManager:
             summary.append(f"{msg['role']}: {msg['content'][:50]}...")
 
         return "\n".join(summary)
+
+    def _get_user_context_file(self, user_id: str) -> Path:
+        """
+        获取用户的上下文文件路径
+
+        Args:
+            user_id: 用户ID
+
+        Returns:
+            文件路径
+        """
+        # 使用固定文件名，而不是时间戳
+        # 这样每个用户只有一个持久化文件
+        safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
+        return self.storage_dir / f"{safe_user_id}_context.json"
+
+    def _load_latest_conversation(self, user_id: str):
+        """
+        加载用户的最新对话历史
+
+        Args:
+            user_id: 用户ID
+        """
+        filepath = self._get_user_context_file(user_id)
+
+        if not filepath.exists():
+            return
+
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                messages = json.load(f)
+
+            # 只加载最近的消息（根据max_messages限制）
+            if len(messages) > self.max_messages:
+                messages = messages[-self.max_messages:]
+
+            self.contexts[user_id] = deque(messages, maxlen=self.max_messages)
+        except Exception as e:
+            # 加载失败，忽略错误
+            pass
+
+    def _auto_save_conversation(self, user_id: str):
+        """
+        自动保存对话历史
+
+        Args:
+            user_id: 用户ID
+        """
+        if user_id not in self.contexts or len(self.contexts[user_id]) == 0:
+            return
+
+        filepath = self._get_user_context_file(user_id)
+
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(list(self.contexts[user_id]), f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            # 保存失败，忽略错误
+            pass
+
