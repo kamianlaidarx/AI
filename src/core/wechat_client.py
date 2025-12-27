@@ -209,15 +209,39 @@ class WeChatClient:
         # 消息去重
         new_messages = []
         for msg in messages:
-            # 跳过非字典类型的消息（如 TimeMessage）
-            if not isinstance(msg, dict):
+            # 跳过时间消息
+            if 'TimeMessage' in str(type(msg)):
                 continue
 
-            msg_id = f"{msg.get('sender', '')}_{msg.get('time', '')}_{msg.get('content', '')}"
+            # 跳过自己发送的消息
+            if 'SelfTextMessage' in str(type(msg)) or 'SelfFileMessage' in str(type(msg)):
+                continue
 
-            if msg_id not in self.last_messages:
-                self.last_messages[msg_id] = True
-                new_messages.append(msg)
+            # 处理好友文本消息
+            if 'FriendTextMessage' in str(type(msg)):
+                try:
+                    # 从消息对象中提取信息
+                    content = str(msg.content) if hasattr(msg, 'content') else str(msg)
+                    sender = str(msg.sender) if hasattr(msg, 'sender') else 'Unknown'
+                    time_str = str(msg.time) if hasattr(msg, 'time') else ''
+
+                    # 构建消息字典
+                    msg_dict = {
+                        'sender': sender,
+                        'content': content,
+                        'time': time_str
+                    }
+
+                    # 消息去重
+                    msg_id = f"{sender}_{time_str}_{content}"
+                    if msg_id not in self.last_messages:
+                        self.last_messages[msg_id] = True
+                        new_messages.append(msg_dict)
+                        log.debug(f"收到新消息: {sender} - {content}")
+
+                except Exception as e:
+                    log.error(f"解析消息失败: {e}, 消息对象: {msg}")
+                    continue
 
         return new_messages
 
