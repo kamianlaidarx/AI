@@ -276,8 +276,8 @@ class WeChatClient:
             if self.backend == 'wcferry':
                 return self.client.is_login()
             elif self.backend == 'wxauto':
-                self.client.GetAllContacts()
-                return True
+                # wxauto 如果初始化成功就说明在线
+                return self.client is not None
             return False
 
         except:
