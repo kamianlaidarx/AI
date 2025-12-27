@@ -209,6 +209,10 @@ class WeChatClient:
         # 消息去重
         new_messages = []
         for msg in messages:
+            # 跳过非字典类型的消息（如 TimeMessage）
+            if not isinstance(msg, dict):
+                continue
+
             msg_id = f"{msg.get('sender', '')}_{msg.get('time', '')}_{msg.get('content', '')}"
 
             if msg_id not in self.last_messages:
