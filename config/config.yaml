@@ -1,38 +1,27 @@
-# 微信AI女友机器人 - 主配置文件
-
-# 微信配置
 wechat:
-  path: "C:\\Program Files\\Tencent\\Weixin"  # 微信安装目录（不是exe文件）
-  auto_reply: true           # 是否自动回复
-  reply_delay: [1, 3]        # 回复延迟范围（秒）
-  max_message_length: 500    # 最大消息长度
-
-# AI配置
+  path: C:\Program Files\Tencent\Weixin
+  auto_reply: true
+  reply_delay:
+  - 1
+  - 3
+  max_message_length: 500
 ai:
-  provider: "doubao"         # AI提供商：doubao/claude/openai
-  model: "ep-20251226192412-8kff2"  # 豆包视觉理解模型Endpoint ID
-  max_tokens: 1000           # 最大生成token数
-  temperature: 0.8           # 温度参数（0-1）
-  max_context_messages: 20   # 最大上下文消息数
-
-# 人格配置
+  provider: doubao
+  model: ep-20251226192412-8kff2
+  max_tokens: 1000
+  temperature: 0.8
+  max_context_messages: 20
 personality:
-  config_file: "config/persona.yaml"
-
-# 过滤器配置
+  config_file: config/persona.yaml
 filters:
-  whitelist: []              # 白名单（为空则接受所有）
-  blacklist: []              # 黑名单
-  keywords_filter: []        # 关键词过滤
-
-# 日志配置
+  whitelist: []
+  blacklist: []
+  keywords_filter: []
 logging:
-  level: "DEBUG"              # 日志级别
-  file: "logs/ailive.log"    # 日志文件
-  rotation: "100 MB"         # 日志轮转大小
-  retention: "30 days"       # 日志保留时间
-
-# 数据存储
+  level: DEBUG
+  file: logs/ailive.log
+  rotation: 100 MB
+  retention: 30 days
 storage:
-  conversations_dir: "data/conversations"
-  cache_dir: "data/cache"
+  conversations_dir: data/conversations
+  cache_dir: data/cache

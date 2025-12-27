@@ -26,58 +26,36 @@ def get_wechat_version():
 
 wechat_version = get_wechat_version()
 
-# 如果是微信3.9，优先使用 wxauto
-if wechat_version and wechat_version.startswith("3.9"):
-    log.info(f"检测到微信版本 {wechat_version}，优先使用 wxauto")
-    # 先尝试 wxauto
-    try:
-        import sys
-        if sys.version_info < (3, 9):
-            from typing import List as _List
-            import typing
-            if not hasattr(typing, 'get_origin'):
-                pass
+# 优先尝试 wxauto（适用于微信3.9）
+try:
+    import sys
+    if sys.version_info < (3, 9):
+        from typing import List as _List
+        import typing
+        if not hasattr(typing, 'get_origin'):
+            pass
 
-        from wxauto import WeChat as WxAutoWeChat
-        WeChat = WxAutoWeChat
-        WECHAT_BACKEND = 'wxauto'
-        log.info("检测到 wxauto，将使用此库（支持微信3.9）")
-    except (ImportError, TypeError) as e:
-        log.warning(f"wxauto未安装或版本不兼容: {e}")
-else:
-    # 其他版本优先尝试 WeChatFerry
-    try:
-        from wcferry import Wcf as WcfClient, WxMsg
-        Wcf = WcfClient
-        WECHAT_BACKEND = 'wcferry'
-        log.info("检测到 WeChatFerry，将使用此库（支持微信4.0+）")
-    except ImportError:
-        pass
-
-# 如果第一选择失败，尝试备选方案
-if WECHAT_BACKEND is None:
-    if wechat_version and wechat_version.startswith("3.9"):
-        # 微信3.9但wxauto失败，不尝试WeChatFerry（不兼容）
-        log.error("wxauto 不可用，且微信3.9不支持WeChatFerry")
+    from wxauto import WeChat as WxAutoWeChat
+    WeChat = WxAutoWeChat
+    WECHAT_BACKEND = 'wxauto'
+    if wechat_version:
+        log.info(f"检测到微信版本 {wechat_version}，使用 wxauto")
     else:
-        # 尝试 wxauto 作为备选
+        log.info("使用 wxauto（推荐用于微信3.9）")
+except (ImportError, TypeError) as e:
+    log.warning(f"wxauto未安装或版本不兼容: {e}")
+    # 如果wxauto失败，再尝试 WeChatFerry（仅用于微信4.0+）
+    if wechat_version and wechat_version.startswith("4."):
         try:
-            import sys
-            if sys.version_info < (3, 9):
-                from typing import List as _List
-                import typing
-                if not hasattr(typing, 'get_origin'):
-                    pass
-
-            from wxauto import WeChat as WxAutoWeChat
-            WeChat = WxAutoWeChat
-            WECHAT_BACKEND = 'wxauto'
-            log.info("检测到 wxauto，将使用此库（仅支持微信3.9）")
-        except (ImportError, TypeError) as e:
-            log.warning(f"wxauto未安装或版本不兼容: {e}")
+            from wcferry import Wcf as WcfClient, WxMsg
+            Wcf = WcfClient
+            WECHAT_BACKEND = 'wcferry'
+            log.info("检测到 WeChatFerry，将使用此库（支持微信4.0+）")
+        except ImportError:
+            pass
 
 if WECHAT_BACKEND is None:
-    log.error("未找到可用的微信库！请安装 wcferry 或 wxauto")
+    log.error("未找到可用的微信库！请安装 wxauto: pip install git+https://github.com/cluic/wxauto.git")
 
 
 class WeChatClient:
