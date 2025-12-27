@@ -75,6 +75,7 @@ class WeChatClient:
         self.backend = WECHAT_BACKEND
         self.client = None
         self.last_messages = {}  # 用于消息去重
+        self.initialized = False  # 标记是否已初始化（清空历史消息）
         self._init_client()
 
     def _init_client(self):
@@ -140,6 +141,18 @@ class WeChatClient:
             消息列表，每条消息包含 sender, content, time
         """
         try:
+            # 第一次调用时，清空所有历史消息（不返回）
+            if not self.initialized:
+                log.info("首次启动，正在清空历史消息...")
+                if self.backend == 'wcferry':
+                    self._get_messages_wcferry()
+                elif self.backend == 'wxauto':
+                    self._get_messages_wxauto(who)
+                self.initialized = True
+                log.info("历史消息已清空，开始监听新消息")
+                return []  # 第一次不返回任何消息
+
+            # 正常获取消息
             if self.backend == 'wcferry':
                 return self._get_messages_wcferry()
             elif self.backend == 'wxauto':
