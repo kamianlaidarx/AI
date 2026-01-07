@@ -42,9 +42,6 @@ class MessageHandler:
         self.end_session_reply = config.get('group_chat.end_session_reply', '会话已结束，如需唤醒请艾特我。')
         self.test_group = config.get('group_chat.test_group', '')
 
-        # 群聊活跃状态 {群名: bool}
-        self.group_active_sessions: Dict[str, bool] = {}
-
         # 群管理员 {群名: 管理员ID}
         self.group_admins: Dict[str, str] = {}
         self.admins_file = Path(config.get('group_chat.admins_file', 'data/group_admins.json'))
@@ -199,25 +196,13 @@ class MessageHandler:
         if self.whitelist and sender in self.whitelist:
             return True
 
-        # 群聊唤醒逻辑
+        # 群聊逻辑：必须 @ 机器人才回复
         if self.group_chat_enabled and self._is_group_message(sender, real_sender):
-            # 检查是否是结束会话消息
-            if self._is_end_session_message(content):
-                return True  # 需要响应结束消息
-
-            # 检查是否是唤醒消息
-            if self._is_wake_up_message(content):
-                self.group_active_sessions[sender] = True
-                log.info(f"群 {sender} 被唤醒，进入活跃状态")
-                return True
-
-            # 检查群是否处于活跃状态
-            if self.group_active_sessions.get(sender, False):
-                return True
-
-            # 群未被唤醒，不响应
-            log.debug(f"群 {sender} 未被唤醒，忽略消息")
-            return False
+            # 必须 @ 机器人才响应
+            if not self._is_wake_up_message(content):
+                log.debug(f"群 {sender} 消息未@机器人，忽略")
+                return False
+            return True
 
         # 白名单为空时的默认行为
         if self.whitelist and sender not in self.whitelist:
@@ -286,21 +271,26 @@ class MessageHandler:
             return None
 
         # 群聊时，记录首个唤醒者为管理员
-        if self._is_group_message(sender, real_sender) and self._is_wake_up_message(content):
-            if real_sender:
-                self._set_admin(sender, real_sender)
+        is_group = self._is_group_message(sender, real_sender)
+        if is_group and real_sender:
+            self._set_admin(sender, real_sender)
 
         # 处理命令
         cmd_result = self._handle_command(sender, content, real_sender)
         if cmd_result is not None:
+            # 群聊命令回复也 @ 发送者
+            if is_group and real_sender:
+                return f"@{real_sender} {cmd_result}"
             return cmd_result
 
-        # 检查是否是结束会话消息
+        # 检查是否是结束会话消息（清空上下文）
         if self._is_end_session_message(content):
-            self.group_active_sessions[sender] = False
             self.context_manager.clear_context(sender)
-            log.info(f"群 {sender} 会话结束，进入休眠状态")
-            return self.end_session_reply
+            log.info(f"群 {sender} 会话上下文已清空")
+            reply = self.end_session_reply
+            if is_group and real_sender:
+                return f"@{real_sender} {reply}"
+            return reply
 
         # 消息预处理（去除@前缀）
         processed_content = self._preprocess_message(content)
@@ -328,6 +318,10 @@ class MessageHandler:
 
             # 添加AI回复到上下文
             self.context_manager.add_message(sender, "assistant", reply)
+
+            # 群聊回复时 @ 发送者
+            if is_group and real_sender:
+                return f"@{real_sender} {reply}"
 
             return reply
 
