@@ -42,9 +42,10 @@ def load_env_file():
         load_dotenv(ENV_FILE)
         return {
             'DOUBAO_API_KEY': os.getenv('DOUBAO_API_KEY', ''),
-            'DOUBAO_API_BASE': os.getenv('DOUBAO_API_BASE', 'https://ark.cn-beijing.volces.com/api/v3'),
+            'DOUBAO_API_BASE': os.getenv('DOUBAO_API_BASE', ''),
             'CLAUDE_API_KEY': os.getenv('CLAUDE_API_KEY', ''),
             'OPENAI_API_KEY': os.getenv('OPENAI_API_KEY', ''),
+            'OPENAI_API_BASE': os.getenv('OPENAI_API_BASE', ''),
         }
     except Exception as e:
         return {'error': str(e)}
@@ -80,12 +81,13 @@ def get_ai_config():
                 'model': config.get('ai', {}).get('model', ''),
                 'temperature': config.get('ai', {}).get('temperature', 0.8),
                 'max_tokens': config.get('ai', {}).get('max_tokens', 1000),
-                'max_context_messages': config.get('ai', {}).get('max_context_messages', 20),
+                'max_context_messages': config.get('ai', {}).get('max_context_messages', 500),
                 'api_keys': {
                     'doubao': env_config.get('DOUBAO_API_KEY', ''),
                     'doubao_base': env_config.get('DOUBAO_API_BASE', ''),
                     'claude': env_config.get('CLAUDE_API_KEY', ''),
                     'openai': env_config.get('OPENAI_API_KEY', ''),
+                    'openai_base': env_config.get('OPENAI_API_BASE', ''),
                 }
             }
         })
@@ -128,6 +130,8 @@ def save_ai_config():
             env_data['CLAUDE_API_KEY'] = api_keys['claude']
         if api_keys.get('openai'):
             env_data['OPENAI_API_KEY'] = api_keys['openai']
+        if api_keys.get('openai_base'):
+            env_data['OPENAI_API_BASE'] = api_keys['openai_base']
 
         if env_data:
             result = save_env_file(env_data)
@@ -227,20 +231,144 @@ def save_wechat_config():
 @config_bp.route('/config/test', methods=['POST'])
 def test_api_connection():
     """测试API连接"""
+    provider = None
     try:
-        data = request.json
+        data = request.json or {}
         provider = data.get('provider', 'doubao')
 
-        # 这里可以添加实际的API测试逻辑
-        # 暂时返回模拟结果
+        env_config = load_env_file()
+        if 'error' in env_config:
+            return jsonify({'success': False, 'error': env_config['error']}), 500
+
+        config_data = load_yaml_file(CONFIG_YAML)
+        if 'error' in config_data:
+            return jsonify({'success': False, 'error': config_data['error']}), 500
+
+        ai_config = config_data.get('ai', {}) if isinstance(config_data, dict) else {}
+        model = data.get('model') or ai_config.get('model', '')
+
+        try:
+            temperature = float(data.get('temperature', ai_config.get('temperature', 0.8)))
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'temperature 参数必须是数字'}), 400
+
+        try:
+            max_tokens = int(data.get('max_tokens', 200))
+            max_tokens = max(10, min(max_tokens, 500))
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'max_tokens 参数必须是整数'}), 400
+
+        test_message = data.get('test_message', '你好，这是一条测试消息。请简短回复确认收到。')
+        api_keys = data.get('api_keys', {})
+
+        from ...personality import Persona
+        persona = Persona()
+        system_prompt = persona.get_system_prompt()
+
+        if provider == 'doubao':
+            api_key = api_keys.get('doubao') or env_config.get('DOUBAO_API_KEY', '')
+            base_url = api_keys.get('doubao_base') or env_config.get('DOUBAO_API_BASE', '')
+            if not api_key:
+                return jsonify({'success': False, 'error': '豆包 API Key 未提供'}), 400
+            if not base_url:
+                return jsonify({'success': False, 'error': '豆包 API Base URL 未配置'}), 400
+            if not model:
+                model = 'doubao-pro-32k'
+
+            try:
+                from volcenginesdkarkruntime import Ark
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 volcenginesdkarkruntime 库，请运行: pip install volcengine-python-sdk'}), 500
+
+            client = Ark(api_key=api_key, base_url=base_url)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": test_message}
+            ]
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            if not response.choices or not response.choices[0].message.content:
+                return jsonify({'success': False, 'error': '豆包 API 返回了空响应'}), 500
+            reply = response.choices[0].message.content
+
+        elif provider == 'claude':
+            api_key = api_keys.get('claude') or env_config.get('CLAUDE_API_KEY', '')
+            if not api_key:
+                return jsonify({'success': False, 'error': 'Claude API Key 未提供'}), 400
+            if not model:
+                model = 'claude-3-haiku-20240307'
+
+            try:
+                from anthropic import Anthropic
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 anthropic 库，请运行: pip install anthropic'}), 500
+
+            client = Anthropic(api_key=api_key)
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system_prompt,
+                messages=[{"role": "user", "content": test_message}]
+            )
+            if not response.content or not response.content[0].text:
+                return jsonify({'success': False, 'error': 'Claude API 返回了空响应'}), 500
+            reply = response.content[0].text
+
+        elif provider == 'openai':
+            api_key = api_keys.get('openai') or env_config.get('OPENAI_API_KEY', '')
+            base_url = api_keys.get('openai_base') or env_config.get('OPENAI_API_BASE', '')
+            if not api_key:
+                return jsonify({'success': False, 'error': 'OpenAI API Key 未提供'}), 400
+            if not base_url:
+                return jsonify({'success': False, 'error': 'OpenAI API Base URL 未配置'}), 400
+            if not model:
+                model = 'gpt-3.5-turbo'
+
+            try:
+                from openai import OpenAI
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 openai 库，请运行: pip install openai'}), 500
+
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": test_message}
+            ]
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            if not response.choices or not response.choices[0].message.content:
+                return jsonify({'success': False, 'error': 'OpenAI API 返回了空响应'}), 500
+            reply = response.choices[0].message.content
+
+        else:
+            return jsonify({'success': False, 'error': f'不支持的 AI 提供商: {provider}'}), 400
+
         return jsonify({
             'success': True,
-            'message': f'{provider} API连接测试成功',
-            'details': {
+            'message': f'{provider} API 连接测试成功',
+            'data': {
                 'provider': provider,
-                'status': 'connected',
-                'latency': '120ms'
+                'model': model,
+                'test_message': test_message,
+                'reply': reply[:200] if len(reply) > 200 else reply
             }
         })
+
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        error_info = {
+            'success': False,
+            'error': str(e),
+            'error_type': e.__class__.__name__
+        }
+        if provider:
+            error_info['provider'] = provider
+        return jsonify(error_info), 500

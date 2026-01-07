@@ -6,11 +6,11 @@ wechat:
   - 3
   max_message_length: 500
 ai:
-  provider: doubao
-  model: ep-20251226192412-8kff2
+  provider: openai
+  model: gpt-4o-mini
   max_tokens: 1000
   temperature: 0.8
-  max_context_messages: 20
+  max_context_messages: 500
 personality:
   config_file: config/persona.yaml
 filters:
@@ -32,4 +32,11 @@ proactive_chat:
   idle_time: 3600            # 闲置多久后主动聊天（秒），默认1小时
   min_interval: 1800         # 最小间隔时间（秒），默认30分钟
   max_daily_proactive: 3     # 每天最多主动几次
+
+# 群聊唤醒配置
+group_chat:
+  enabled: true                        # 是否启用群聊功能
+  end_session_keyword: "结束本次会话"   # 结束会话关键词
+  end_session_reply: "我跟刘狗日批去了，如需唤醒请艾特我的名字。"  # 结束语
+  test_group: ""                       # 测试群名称（留空则对所有群生效）
 

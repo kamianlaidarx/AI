@@ -54,3 +54,4 @@ Thumbs.db
 *.tmp
 *.bak
 *.swp
+.ace-tool/

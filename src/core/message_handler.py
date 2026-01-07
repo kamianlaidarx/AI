@@ -4,7 +4,7 @@
 """
 import time
 import random
-from typing import Optional
+from typing import Optional, Dict
 from ..utils import log, config, ContextManager
 from .wechat_client import WeChatClient
 from .ai_engine import AIEngine
@@ -25,7 +25,7 @@ class MessageHandler:
         self.wechat = wechat_client
         self.ai = ai_engine
         self.context_manager = ContextManager(
-            max_messages=config.get('ai.max_context_messages', 20)
+            max_messages=config.get('ai.max_context_messages', 500)
         )
 
         # 加载配置
@@ -33,6 +33,18 @@ class MessageHandler:
         self.reply_delay = config.get('wechat.reply_delay', [1, 3])
         self.whitelist = config.get('filters.whitelist', [])
         self.blacklist = config.get('filters.blacklist', [])
+
+        # 群聊唤醒配置
+        self.group_chat_enabled = config.get('group_chat.enabled', True)
+        self.end_session_keyword = config.get('group_chat.end_session_keyword', '结束本次会话')
+        self.end_session_reply = config.get('group_chat.end_session_reply', '会话已结束，如需唤醒请艾特我。')
+        self.test_group = config.get('group_chat.test_group', '')
+
+        # 群聊活跃状态 {群名: bool}
+        self.group_active_sessions: Dict[str, bool] = {}
+
+        # 从 persona 获取机器人名字
+        self.bot_name = self.ai.persona.config.get('name', '')
 
         # 初始化主动对话管理器
         proactive_config = config.get('proactive_chat', {
@@ -47,14 +59,74 @@ class MessageHandler:
             config=proactive_config
         )
 
-        log.info("消息处理器初始化成功")
+        log.info(f"消息处理器初始化成功，机器人名字: {self.bot_name}")
 
-    def should_reply(self, sender: str) -> bool:
+    def _is_group_message(self, sender: str) -> bool:
+        """
+        判断是否是群聊消息
+        wxauto 中群聊的 sender 通常包含群名
+
+        Args:
+            sender: 发送者/来源
+
+        Returns:
+            是否是群聊消息
+        """
+        # 如果设置了测试群，只对该群启用唤醒功能
+        if self.test_group:
+            return sender == self.test_group
+        # 未设置测试群时，禁用群聊唤醒功能（所有消息正常响应）
+        return False
+
+    def _is_wake_up_message(self, content: str) -> bool:
+        """
+        检测是否是唤醒消息（@机器人名字）
+
+        Args:
+            content: 消息内容
+
+        Returns:
+            是否是唤醒消息
+        """
+        if not self.bot_name:
+            return False
+        wake_pattern = f"@{self.bot_name}"
+        return wake_pattern in content
+
+    def _is_end_session_message(self, content: str) -> bool:
+        """
+        检测是否是结束会话消息
+
+        Args:
+            content: 消息内容
+
+        Returns:
+            是否是结束会话消息
+        """
+        return self._is_wake_up_message(content) and self.end_session_keyword in content
+
+    def _strip_at_prefix(self, content: str) -> str:
+        """
+        去除消息中的@前缀
+
+        Args:
+            content: 原始消息内容
+
+        Returns:
+            去除@前缀后的消息
+        """
+        if self.bot_name:
+            wake_pattern = f"@{self.bot_name}"
+            content = content.replace(wake_pattern, '').strip()
+        return content
+
+    def should_reply(self, sender: str, content: str) -> bool:
         """
         判断是否应该回复该发送者
 
         Args:
             sender: 发送者名称
+            content: 消息内容
 
         Returns:
             是否应该回复
@@ -64,7 +136,31 @@ class MessageHandler:
             log.info(f"发送者 {sender} 在黑名单中，忽略消息")
             return False
 
-        # 检查白名单（如果白名单不为空）
+        # 检查白名单（如果白名单不为空，私聊直接响应）
+        if self.whitelist and sender in self.whitelist:
+            return True
+
+        # 群聊唤醒逻辑
+        if self.group_chat_enabled and self._is_group_message(sender):
+            # 检查是否是结束会话消息
+            if self._is_end_session_message(content):
+                return True  # 需要响应结束消息
+
+            # 检查是否是唤醒消息
+            if self._is_wake_up_message(content):
+                self.group_active_sessions[sender] = True
+                log.info(f"群 {sender} 被唤醒，进入活跃状态")
+                return True
+
+            # 检查群是否处于活跃状态
+            if self.group_active_sessions.get(sender, False):
+                return True
+
+            # 群未被唤醒，不响应
+            log.debug(f"群 {sender} 未被唤醒，忽略消息")
+            return False
+
+        # 白名单为空时的默认行为
         if self.whitelist and sender not in self.whitelist:
             log.info(f"发送者 {sender} 不在白名单中，忽略消息")
             return False
@@ -83,17 +179,25 @@ class MessageHandler:
             回复内容，如果不需要回复则返回None
         """
         # 检查是否应该回复
-        if not self.should_reply(sender):
+        if not self.should_reply(sender, content):
             return None
 
-        # 消息预处理
-        content = self._preprocess_message(content)
+        # 检查是否是结束会话消息
+        if self._is_end_session_message(content):
+            self.group_active_sessions[sender] = False
+            self.context_manager.clear_context(sender)
+            log.info(f"群 {sender} 会话结束，进入休眠状态")
+            return self.end_session_reply
 
-        if not content:
+        # 消息预处理（去除@前缀）
+        processed_content = self._preprocess_message(content)
+        processed_content = self._strip_at_prefix(processed_content)
+
+        if not processed_content:
             return None
 
         # 添加用户消息到上下文
-        self.context_manager.add_message(sender, "user", content)
+        self.context_manager.add_message(sender, "user", processed_content)
 
         # 获取对话上下文
         context = self.context_manager.get_context(sender)
@@ -101,7 +205,7 @@ class MessageHandler:
         # 生成AI回复
         try:
             reply = self.ai.generate_response(
-                message=content,
+                message=processed_content,
                 context=context[:-1],  # 不包含刚添加的消息
                 user_id=sender
             )

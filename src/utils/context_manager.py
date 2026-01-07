@@ -12,7 +12,7 @@ from pathlib import Path
 class ContextManager:
     """上下文管理类"""
 
-    def __init__(self, max_messages: int = 20, storage_dir: str = "data/conversations"):
+    def __init__(self, max_messages: int = 500, storage_dir: str = "data/conversations"):
         """
         初始化上下文管理器
 
