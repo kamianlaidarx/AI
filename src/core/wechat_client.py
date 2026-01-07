@@ -74,6 +74,7 @@ class WeChatClient:
 
         self.backend = WECHAT_BACKEND
         self.client = None
+        self.nickname = None  # 当前登录用户昵称
         self.last_messages = {}  # 用于消息去重
         self.initialized = False  # 标记是否已初始化（清空历史消息）
         self._init_client()
@@ -129,6 +130,10 @@ class WeChatClient:
     def _init_wxauto(self):
         """初始化 wxauto"""
         self.client = WeChat()
+        # 获取当前登录用户昵称
+        if hasattr(self.client, 'nickname'):
+            self.nickname = self.client.nickname
+            log.info(f"当前登录微信昵称: {self.nickname}")
 
     def get_latest_messages(self, who: str = None) -> List[Dict[str, str]]:
         """

@@ -53,6 +53,13 @@ class MessageHandler:
         # 从 persona 获取机器人名字
         self.bot_name = self.ai.persona.config.get('name', '')
 
+        # 优先使用微信登录昵称（用于@检测）
+        self.wechat_nickname = getattr(wechat_client, 'nickname', None)
+        if self.wechat_nickname:
+            log.info(f"使用微信昵称检测@消息: {self.wechat_nickname}")
+        else:
+            log.info(f"未获取到微信昵称，使用persona名字: {self.bot_name}")
+
         # 初始化主动对话管理器
         proactive_config = config.get('proactive_chat', {
             'enabled': True,
@@ -120,7 +127,7 @@ class MessageHandler:
 
     def _is_wake_up_message(self, content: str) -> bool:
         """
-        检测是否是唤醒消息（@机器人名字）
+        检测是否是唤醒消息（@机器人）
 
         Args:
             content: 消息内容
@@ -128,12 +135,14 @@ class MessageHandler:
         Returns:
             是否是唤醒消息
         """
-        if not self.bot_name:
-            log.debug(f"bot_name 未设置，无法检测唤醒消息")
+        # 优先使用微信昵称，其次使用 persona 名字
+        name_to_check = self.wechat_nickname or self.bot_name
+        if not name_to_check:
+            log.debug("bot_name 和 wechat_nickname 均未设置，无法检测唤醒消息")
             return False
-        wake_pattern = f"@{self.bot_name}"
+        wake_pattern = f"@{name_to_check}"
         is_wake = wake_pattern in content
-        log.debug(f"唤醒检测: bot_name='{self.bot_name}', pattern='{wake_pattern}', content='{content}', result={is_wake}")
+        log.debug(f"唤醒检测: name='{name_to_check}', pattern='{wake_pattern}', content='{content}', result={is_wake}")
         return is_wake
 
     def _is_end_session_message(self, content: str) -> bool:
@@ -162,8 +171,10 @@ class MessageHandler:
         Returns:
             去除@前缀后的消息
         """
-        if self.bot_name:
-            wake_pattern = f"@{self.bot_name}"
+        # 优先使用微信昵称，其次使用 persona 名字
+        name_to_check = self.wechat_nickname or self.bot_name
+        if name_to_check:
+            wake_pattern = f"@{name_to_check}"
             content = content.replace(wake_pattern, '').strip()
         return content
 
