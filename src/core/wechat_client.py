@@ -213,30 +213,46 @@ class WeChatClient:
                 try:
                     # 从消息对象中提取信息
                     content = str(msg.content) if hasattr(msg, 'content') else str(msg)
-                    sender = str(msg.sender) if hasattr(msg, 'sender') else 'Unknown'
                     time_str = str(msg.time) if hasattr(msg, 'time') else ''
 
-                    # 尝试获取实际发送者（群聊时）
+                    # 获取聊天窗口名（群名或好友名）和实际发送者
+                    # wxauto 的 sender 是消息发送者，对于群聊就是群成员名
+                    # 需要从 info 或 chat 属性获取群名
+                    chat_name = None
                     real_sender = None
-                    if hasattr(msg, 'sender_name'):
-                        real_sender = str(msg.sender_name)
-                    elif hasattr(msg, 'nickname'):
-                        real_sender = str(msg.nickname)
+
+                    # 尝试获取聊天窗口名称
+                    if hasattr(msg, 'chat'):
+                        chat_name = str(msg.chat)
+                    elif hasattr(msg, 'chatroom'):
+                        chat_name = str(msg.chatroom)
+                    elif hasattr(msg, 'info') and msg.info:
+                        # info 可能包含群名信息
+                        chat_name = str(msg.info)
+
+                    # 获取实际发送者
+                    sender_name = str(msg.sender) if hasattr(msg, 'sender') else 'Unknown'
+
+                    # 如果没有 chat_name，说明是私聊，sender 就是聊天窗口
+                    if chat_name:
+                        real_sender = sender_name
+                    else:
+                        chat_name = sender_name
 
                     # 构建消息字典
                     msg_dict = {
-                        'sender': sender,
+                        'sender': chat_name,
                         'content': content,
                         'time': time_str,
                         'real_sender': real_sender
                     }
 
                     # 消息去重
-                    msg_id = f"{sender}_{time_str}_{content}"
+                    msg_id = f"{chat_name}_{time_str}_{content}"
                     if msg_id not in self.last_messages:
                         self.last_messages[msg_id] = True
                         new_messages.append(msg_dict)
-                        log.debug(f"收到新消息: {sender} - {content}")
+                        log.debug(f"收到新消息: {chat_name} - {content}")
 
                 except Exception as e:
                     log.error(f"解析消息失败: {e}, 消息对象: {msg}")
@@ -249,7 +265,7 @@ class WeChatClient:
         发送消息
 
         Args:
-            to_user: 接收人（wxid或昵称）
+            to_user: 接收人（聊天窗口名称：群名或好友昵称）
             content: 消息内容
             delay: 发送延迟（秒）
 
@@ -264,7 +280,9 @@ class WeChatClient:
                 # WeChatFerry 需要 wxid
                 self.client.send_text(content, to_user)
             elif self.backend == 'wxauto':
-                self.client.SendMsg(msg=content, who=to_user)
+                # wxauto 需要先切换到聊天窗口再发送
+                self.client.ChatWith(to_user)
+                self.client.SendMsg(msg=content)
 
             log.info(f"发送消息给 {to_user}: {content[:50]}...")
             return True
