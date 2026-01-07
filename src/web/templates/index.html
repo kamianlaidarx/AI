@@ -90,7 +90,7 @@
                                         <label class="col-sm-2 col-form-label">上下文消息数</label>
                                         <div class="col-sm-10">
                                             <input type="number" class="form-control" id="ai-max-context" name="max_context_messages"
-                                                   value="20" min="5" max="50">
+                                                   value="500" min="5" max="1000">
                                             <div class="form-text">保留的历史消息数量</div>
                                         </div>
                                     </div>
@@ -127,6 +127,15 @@
                                         <div class="col-sm-10">
                                             <input type="password" class="form-control" id="openai-api-key"
                                                    placeholder="输入OpenAI API密钥（可选）">
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3">
+                                        <label class="col-sm-2 col-form-label">OpenAI API Base</label>
+                                        <div class="col-sm-10">
+                                            <input type="text" class="form-control" id="openai-api-base"
+                                                   placeholder="输入OpenAI API Base URL">
+                                            <div class="form-text">例如: https://api.openai.com/v1 或您的代理地址</div>
                                         </div>
                                     </div>
 
@@ -368,6 +377,43 @@
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 测试会话对话窗口 -->
+    <div class="modal fade" id="test-chat-modal" tabindex="-1" aria-labelledby="testChatModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="testChatModalLabel">
+                        <i class="bi bi-chat-dots"></i> API 连接测试
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <span class="badge bg-secondary" id="test-chat-provider">-</span>
+                        <span class="badge bg-info" id="test-chat-model">-</span>
+                    </div>
+                    <div id="test-chat-messages" class="border rounded p-3 mb-3" style="height: 300px; overflow-y: auto; background-color: #f8f9fa;">
+                        <div class="text-center text-muted">
+                            <i class="bi bi-chat-left-text"></i> 发送消息开始测试对话
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="test-chat-input" placeholder="输入测试消息...">
+                        <button class="btn btn-primary" type="button" id="test-chat-send">
+                            <i class="bi bi-send"></i> 发送
+                        </button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" id="test-chat-clear">
+                        <i class="bi bi-trash"></i> 清空对话
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
                 </div>
             </div>
         </div>

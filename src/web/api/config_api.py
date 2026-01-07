@@ -372,3 +372,148 @@ def test_api_connection():
         if provider:
             error_info['provider'] = provider
         return jsonify(error_info), 500
+
+
+@config_bp.route('/config/test/chat', methods=['POST'])
+def test_chat():
+    """测试会话聊天接口"""
+    provider = None
+    try:
+        data = request.json or {}
+        provider = data.get('provider', 'doubao')
+        message = data.get('message', '')
+        context = data.get('context', [])
+
+        if not message:
+            return jsonify({'success': False, 'error': '消息不能为空'}), 400
+
+        env_config = load_env_file()
+        if 'error' in env_config:
+            return jsonify({'success': False, 'error': env_config['error']}), 500
+
+        config_data = load_yaml_file(CONFIG_YAML)
+        if 'error' in config_data:
+            return jsonify({'success': False, 'error': config_data['error']}), 500
+
+        ai_config = config_data.get('ai', {}) if isinstance(config_data, dict) else {}
+        model = data.get('model') or ai_config.get('model', '')
+        temperature = float(ai_config.get('temperature', 0.8))
+        max_tokens = int(ai_config.get('max_tokens', 1000))
+        api_keys = data.get('api_keys', {})
+
+        from ...personality import Persona
+        persona = Persona()
+        system_prompt = persona.get_system_prompt()
+
+        if provider == 'doubao':
+            api_key = env_config.get('DOUBAO_API_KEY', '')
+            base_url = api_keys.get('doubao_base') or env_config.get('DOUBAO_API_BASE', '')
+            if not api_key:
+                return jsonify({'success': False, 'error': '豆包 API Key 未配置'}), 400
+            if not base_url:
+                return jsonify({'success': False, 'error': '豆包 API Base URL 未配置'}), 400
+            if not model:
+                model = 'doubao-pro-32k'
+
+            try:
+                from volcenginesdkarkruntime import Ark
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 volcenginesdkarkruntime 库'}), 500
+
+            client = Ark(api_key=api_key, base_url=base_url)
+            messages = [{"role": "system", "content": system_prompt}]
+            for ctx in context:
+                messages.append({"role": ctx["role"], "content": ctx["content"]})
+            messages.append({"role": "user", "content": message})
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            if not response.choices or not response.choices[0].message.content:
+                return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
+            reply = response.choices[0].message.content
+
+        elif provider == 'claude':
+            api_key = env_config.get('CLAUDE_API_KEY', '')
+            if not api_key:
+                return jsonify({'success': False, 'error': 'Claude API Key 未配置'}), 400
+            if not model:
+                model = 'claude-3-haiku-20240307'
+
+            try:
+                from anthropic import Anthropic
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 anthropic 库'}), 500
+
+            client = Anthropic(api_key=api_key)
+            messages = []
+            for ctx in context:
+                messages.append({"role": ctx["role"], "content": ctx["content"]})
+            messages.append({"role": "user", "content": message})
+
+            response = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system_prompt,
+                messages=messages
+            )
+            if not response.content or not response.content[0].text:
+                return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
+            reply = response.content[0].text
+
+        elif provider == 'openai':
+            api_key = env_config.get('OPENAI_API_KEY', '')
+            base_url = api_keys.get('openai_base') or env_config.get('OPENAI_API_BASE', '')
+            if not api_key:
+                return jsonify({'success': False, 'error': 'OpenAI API Key 未配置'}), 400
+            if not base_url:
+                return jsonify({'success': False, 'error': 'OpenAI API Base URL 未配置'}), 400
+            if not model:
+                model = 'gpt-3.5-turbo'
+
+            try:
+                from openai import OpenAI
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 openai 库'}), 500
+
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            messages = [{"role": "system", "content": system_prompt}]
+            for ctx in context:
+                messages.append({"role": ctx["role"], "content": ctx["content"]})
+            messages.append({"role": "user", "content": message})
+
+            response = client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            if not response.choices or not response.choices[0].message.content:
+                return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
+            reply = response.choices[0].message.content
+
+        else:
+            return jsonify({'success': False, 'error': f'不支持的 AI 提供商: {provider}'}), 400
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'provider': provider,
+                'model': model,
+                'reply': reply
+            }
+        })
+
+    except Exception as e:
+        error_info = {
+            'success': False,
+            'error': str(e),
+            'error_type': e.__class__.__name__
+        }
+        if provider:
+            error_info['provider'] = provider
+        return jsonify(error_info), 500
