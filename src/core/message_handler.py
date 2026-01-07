@@ -129,9 +129,12 @@ class MessageHandler:
             是否是唤醒消息
         """
         if not self.bot_name:
+            log.debug(f"bot_name 未设置，无法检测唤醒消息")
             return False
         wake_pattern = f"@{self.bot_name}"
-        return wake_pattern in content
+        is_wake = wake_pattern in content
+        log.debug(f"唤醒检测: bot_name='{self.bot_name}', pattern='{wake_pattern}', content='{content}', result={is_wake}")
+        return is_wake
 
     def _is_end_session_message(self, content: str) -> bool:
         """
@@ -143,7 +146,11 @@ class MessageHandler:
         Returns:
             是否是结束会话消息
         """
-        return self._is_wake_up_message(content) and self.end_session_keyword in content
+        is_wake = self._is_wake_up_message(content)
+        has_keyword = self.end_session_keyword in content
+        result = is_wake and has_keyword
+        log.debug(f"结束会话检测: keyword='{self.end_session_keyword}', is_wake={is_wake}, has_keyword={has_keyword}, result={result}")
+        return result
 
     def _strip_at_prefix(self, content: str) -> str:
         """
