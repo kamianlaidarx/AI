@@ -89,10 +89,11 @@ class AILive:
                 for msg in messages:
                     sender = msg.get('sender', '')
                     content = msg.get('content', '')
+                    real_sender = msg.get('real_sender')
 
                     # 过滤系统消息和自己发送的消息
                     if sender and content:
-                        self.message_handler.handle_message(sender, content)
+                        self.message_handler.handle_message(sender, content, real_sender)
 
                 # 定期检查是否需要主动发送消息
                 proactive_check_counter += check_interval

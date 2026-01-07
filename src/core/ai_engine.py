@@ -225,3 +225,43 @@ class AIEngine:
         self.persona.reload()
         log.info("人格配置已重新加载")
 
+    def set_model(self, model_name: str) -> bool:
+        """
+        动态切换模型
+
+        Args:
+            model_name: 新模型名称
+
+        Returns:
+            是否切换成功
+        """
+        old_model = self.model
+        self.model = model_name
+        log.info(f"模型已切换: {old_model} -> {model_name}")
+        return True
+
+    def get_available_models(self) -> List[str]:
+        """
+        获取可用模型列表
+
+        Returns:
+            模型ID列表
+        """
+        try:
+            if self.provider == 'openai' or self.provider == 'doubao':
+                response = self.client.models.list()
+                return [model.id for model in response.data]
+            elif self.provider == 'claude':
+                # Claude 没有官方模型列表 API，返回常用模型
+                return [
+                    'claude-3-5-sonnet-20241022',
+                    'claude-3-5-haiku-20241022',
+                    'claude-3-opus-20240229',
+                    'claude-3-sonnet-20240229',
+                    'claude-3-haiku-20240307'
+                ]
+            return []
+        except Exception as e:
+            log.error(f"获取模型列表失败: {e}")
+            return []
+

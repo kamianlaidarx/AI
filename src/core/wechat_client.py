@@ -216,11 +216,19 @@ class WeChatClient:
                     sender = str(msg.sender) if hasattr(msg, 'sender') else 'Unknown'
                     time_str = str(msg.time) if hasattr(msg, 'time') else ''
 
+                    # 尝试获取实际发送者（群聊时）
+                    real_sender = None
+                    if hasattr(msg, 'sender_name'):
+                        real_sender = str(msg.sender_name)
+                    elif hasattr(msg, 'nickname'):
+                        real_sender = str(msg.nickname)
+
                     # 构建消息字典
                     msg_dict = {
                         'sender': sender,
                         'content': content,
-                        'time': time_str
+                        'time': time_str,
+                        'real_sender': real_sender
                     }
 
                     # 消息去重

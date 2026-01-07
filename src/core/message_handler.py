@@ -4,6 +4,8 @@
 """
 import time
 import random
+import json
+from pathlib import Path
 from typing import Optional, Dict
 from ..utils import log, config, ContextManager
 from .wechat_client import WeChatClient
@@ -43,6 +45,11 @@ class MessageHandler:
         # 群聊活跃状态 {群名: bool}
         self.group_active_sessions: Dict[str, bool] = {}
 
+        # 群管理员 {群名: 管理员ID}
+        self.group_admins: Dict[str, str] = {}
+        self.admins_file = Path(config.get('group_chat.admins_file', 'data/group_admins.json'))
+        self._load_admins()
+
         # 从 persona 获取机器人名字
         self.bot_name = self.ai.persona.config.get('name', '')
 
@@ -60,6 +67,37 @@ class MessageHandler:
         )
 
         log.info(f"消息处理器初始化成功，机器人名字: {self.bot_name}")
+
+    def _load_admins(self):
+        """从文件加载群管理员信息"""
+        try:
+            if self.admins_file.exists():
+                with open(self.admins_file, 'r', encoding='utf-8') as f:
+                    self.group_admins = json.load(f)
+                log.info(f"已加载 {len(self.group_admins)} 个群的管理员信息")
+        except Exception as e:
+            log.error(f"加载管理员信息失败: {e}")
+            self.group_admins = {}
+
+    def _save_admins(self):
+        """保存群管理员信息到文件"""
+        try:
+            self.admins_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.admins_file, 'w', encoding='utf-8') as f:
+                json.dump(self.group_admins, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            log.error(f"保存管理员信息失败: {e}")
+
+    def _is_admin(self, group: str, user: str) -> bool:
+        """检查用户是否是群管理员"""
+        return self.group_admins.get(group) == user
+
+    def _set_admin(self, group: str, user: str):
+        """设置群管理员（首个唤醒者）"""
+        if group not in self.group_admins:
+            self.group_admins[group] = user
+            self._save_admins()
+            log.info(f"群 {group} 的管理员已设为: {user}")
 
     def _is_group_message(self, sender: str) -> bool:
         """
@@ -167,13 +205,57 @@ class MessageHandler:
 
         return True
 
-    def process_message(self, sender: str, content: str) -> Optional[str]:
+    def _handle_command(self, sender: str, content: str, real_sender: str = None) -> Optional[str]:
+        """
+        处理命令消息
+
+        Args:
+            sender: 发送者/群名
+            content: 消息内容
+            real_sender: 实际发送者
+
+        Returns:
+            命令响应，如果不是命令则返回None
+        """
+        content_stripped = content.strip()
+
+        # /modellist - 查询可用模型（所有人可用）
+        if content_stripped == '/modellist':
+            models = self.ai.get_available_models()
+            if models:
+                model_list = '\n'.join([f"• {m}" for m in models[:20]])  # 最多显示20个
+                current = self.ai.model
+                return f"当前模型: {current}\n\n可用模型:\n{model_list}"
+            return "获取模型列表失败"
+
+        # /model <model_name> - 切换模型（仅管理员）
+        if content_stripped.startswith('/model '):
+            new_model = content_stripped[7:].strip()
+            if not new_model:
+                return "用法: /model <模型名称>"
+
+            # 检查权限
+            user = real_sender or sender
+            if self._is_group_message(sender):
+                if not self._is_admin(sender, user):
+                    admin = self.group_admins.get(sender, '未知')
+                    return f"仅管理员可切换模型（当前管理员: {admin}）"
+
+            # 切换模型
+            old_model = self.ai.model
+            self.ai.set_model(new_model)
+            return f"模型已切换: {old_model} → {new_model}"
+
+        return None
+
+    def process_message(self, sender: str, content: str, real_sender: str = None) -> Optional[str]:
         """
         处理消息并生成回复
 
         Args:
-            sender: 发送者
+            sender: 发送者/群名
             content: 消息内容
+            real_sender: 实际发送者（群聊中的用户名，私聊时为None）
 
         Returns:
             回复内容，如果不需要回复则返回None
@@ -181,6 +263,16 @@ class MessageHandler:
         # 检查是否应该回复
         if not self.should_reply(sender, content):
             return None
+
+        # 群聊时，记录首个唤醒者为管理员
+        if self._is_group_message(sender) and self._is_wake_up_message(content):
+            if real_sender:
+                self._set_admin(sender, real_sender)
+
+        # 处理命令
+        cmd_result = self._handle_command(sender, content, real_sender)
+        if cmd_result is not None:
+            return cmd_result
 
         # 检查是否是结束会话消息
         if self._is_end_session_message(content):
@@ -280,13 +372,14 @@ class MessageHandler:
 
         return self.wechat.send_message(to_user, content, delay)
 
-    def handle_message(self, sender: str, content: str):
+    def handle_message(self, sender: str, content: str, real_sender: str = None):
         """
         完整处理消息流程：接收 -> 处理 -> 回复
 
         Args:
-            sender: 发送者
+            sender: 发送者/群名
             content: 消息内容
+            real_sender: 实际发送者（群聊中的用户名）
         """
         log.info(f"收到来自 {sender} 的消息: {content[:50]}...")
 
@@ -294,7 +387,7 @@ class MessageHandler:
         self.proactive_chat.update_last_message_time(sender)
 
         # 处理消息
-        reply = self.process_message(sender, content)
+        reply = self.process_message(sender, content, real_sender)
 
         if reply and self.auto_reply:
             # 发送回复

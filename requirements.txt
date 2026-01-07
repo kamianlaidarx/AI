@@ -1,6 +1,10 @@
 # AI Models - Volcengine Ark SDK
 volcengine-python-sdk[ark]>=1.0.0
 
+# AI Models - OpenAI & Claude
+openai>=1.0.0
+anthropic>=0.18.0
+
 # Configuration Management
 pyyaml>=6.0.1
 python-dotenv>=1.0.0

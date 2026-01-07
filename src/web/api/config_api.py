@@ -466,7 +466,7 @@ def test_chat():
             reply = response.content[0].text
 
         elif provider == 'openai':
-            api_key = env_config.get('OPENAI_API_KEY', '')
+            api_key = api_keys.get('openai') or env_config.get('OPENAI_API_KEY', '')
             base_url = api_keys.get('openai_base') or env_config.get('OPENAI_API_BASE', '')
             if not api_key:
                 return jsonify({'success': False, 'error': 'OpenAI API Key 未配置'}), 400

@@ -39,4 +39,5 @@ group_chat:
   end_session_keyword: "结束本次会话"   # 结束会话关键词
   end_session_reply: "我跟刘狗日批去了，如需唤醒请艾特我的名字。"  # 结束语
   test_group: ""                       # 测试群名称（留空则对所有群生效）
+  admins_file: "data/group_admins.json"  # 群管理员存储文件
 
