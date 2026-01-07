@@ -99,21 +99,23 @@ class MessageHandler:
             self._save_admins()
             log.info(f"群 {group} 的管理员已设为: {user}")
 
-    def _is_group_message(self, sender: str) -> bool:
+    def _is_group_message(self, sender: str, real_sender: str = None) -> bool:
         """
         判断是否是群聊消息
-        wxauto 中群聊的 sender 通常包含群名
 
         Args:
-            sender: 发送者/来源
+            sender: 发送者/来源（群名或好友名）
+            real_sender: 实际发送者（群成员名，私聊时为None）
 
         Returns:
             是否是群聊消息
         """
-        # 如果设置了测试群，只对该群启用唤醒功能
-        if self.test_group:
-            return sender == self.test_group
-        # 未设置测试群时，禁用群聊唤醒功能（所有消息正常响应）
+        # 如果有 real_sender，说明是群聊消息
+        if real_sender:
+            # 如果设置了测试群，只对该群启用功能
+            if self.test_group:
+                return sender == self.test_group
+            return True
         return False
 
     def _is_wake_up_message(self, content: str) -> bool:
@@ -158,13 +160,14 @@ class MessageHandler:
             content = content.replace(wake_pattern, '').strip()
         return content
 
-    def should_reply(self, sender: str, content: str) -> bool:
+    def should_reply(self, sender: str, content: str, real_sender: str = None) -> bool:
         """
         判断是否应该回复该发送者
 
         Args:
-            sender: 发送者名称
+            sender: 发送者名称（群名或好友名）
             content: 消息内容
+            real_sender: 实际发送者（群成员名）
 
         Returns:
             是否应该回复
@@ -179,7 +182,7 @@ class MessageHandler:
             return True
 
         # 群聊唤醒逻辑
-        if self.group_chat_enabled and self._is_group_message(sender):
+        if self.group_chat_enabled and self._is_group_message(sender, real_sender):
             # 检查是否是结束会话消息
             if self._is_end_session_message(content):
                 return True  # 需要响应结束消息
@@ -236,7 +239,7 @@ class MessageHandler:
 
             # 检查权限
             user = real_sender or sender
-            if self._is_group_message(sender):
+            if self._is_group_message(sender, real_sender):
                 if not self._is_admin(sender, user):
                     admin = self.group_admins.get(sender, '未知')
                     return f"仅管理员可切换模型（当前管理员: {admin}）"
@@ -261,11 +264,11 @@ class MessageHandler:
             回复内容，如果不需要回复则返回None
         """
         # 检查是否应该回复
-        if not self.should_reply(sender, content):
+        if not self.should_reply(sender, content, real_sender):
             return None
 
         # 群聊时，记录首个唤醒者为管理员
-        if self._is_group_message(sender) and self._is_wake_up_message(content):
+        if self._is_group_message(sender, real_sender) and self._is_wake_up_message(content):
             if real_sender:
                 self._set_admin(sender, real_sender)
 
