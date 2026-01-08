@@ -287,7 +287,16 @@ class WeChatClient:
             elif self.backend == 'wxauto':
                 # wxauto 需要先切换到聊天窗口再发送
                 self.client.ChatWith(to_user)
-                self.client.SendMsg(msg=content)
+                # 微信有消息长度限制，超长消息分段发送
+                max_len = 2000
+                if len(content) > max_len:
+                    parts = [content[i:i+max_len] for i in range(0, len(content), max_len)]
+                    for i, part in enumerate(parts):
+                        if i > 0:
+                            time.sleep(0.5)  # 分段发送间隔
+                        self.client.SendMsg(msg=part)
+                else:
+                    self.client.SendMsg(msg=content)
 
             log.info(f"发送消息给 {to_user}: {content[:50]}...")
             return True
