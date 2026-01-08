@@ -393,7 +393,7 @@ def test_api_connection():
                 'provider': provider,
                 'model': model,
                 'test_message': test_message,
-                'reply': reply[:200] if len(reply) > 200 else reply
+                'reply': reply
             }
         })
 
