@@ -341,98 +341,6 @@ function clearTestChat() {
     testChatContext = [];
 }
 
-// 加载人格配置
-async function loadPersonaConfig() {
-    try {
-        const response = await axios.get(`${API_BASE}/config/persona`);
-        if (response.data.success) {
-            const data = response.data.data;
-            document.getElementById('persona-name').value = data.name || '';
-            document.getElementById('persona-age').value = data.age || 22;
-            document.getElementById('persona-gender').value = data.gender || '女';
-            document.getElementById('persona-occupation').value = data.occupation || '';
-
-            // 性格特征
-            if (data.personality) {
-                if (data.personality.traits) {
-                    document.getElementById('persona-traits').value = data.personality.traits.join('\n');
-                }
-                if (data.personality.interests) {
-                    document.getElementById('persona-interests').value = data.personality.interests.join('\n');
-                }
-            }
-
-            // 说话风格
-            if (data.speaking_style) {
-                document.getElementById('persona-tone').value = data.speaking_style.tone || '';
-                if (data.speaking_style.particles) {
-                    document.getElementById('persona-particles').value = data.speaking_style.particles.join(',');
-                }
-                if (data.speaking_style.expressions) {
-                    document.getElementById('persona-expressions').value = data.speaking_style.expressions.join(',');
-                }
-            }
-
-            // 关系设定
-            if (data.relationship) {
-                document.getElementById('persona-role').value = data.relationship.role || '女朋友';
-                document.getElementById('persona-intimacy').value = data.relationship.intimacy_level || '亲密';
-                if (data.relationship.behaviors) {
-                    document.getElementById('persona-behaviors').value = data.relationship.behaviors.join('\n');
-                }
-            }
-        }
-    } catch (error) {
-        showToast('加载人格配置失败: ' + error.message, 'error');
-    }
-}
-
-// 保存人格配置
-async function savePersonaConfig(event) {
-    event.preventDefault();
-    const form = event.target;
-    const submitBtn = form.querySelector('button[type="submit"]');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>保存中...';
-
-    try {
-        const data = {
-            name: document.getElementById('persona-name').value,
-            age: parseInt(document.getElementById('persona-age').value),
-            gender: document.getElementById('persona-gender').value,
-            occupation: document.getElementById('persona-occupation').value,
-            personality: {
-                traits: document.getElementById('persona-traits').value.split('\n').filter(t => t.trim()),
-                interests: document.getElementById('persona-interests').value.split('\n').filter(i => i.trim())
-            },
-            speaking_style: {
-                tone: document.getElementById('persona-tone').value,
-                length: "适中",
-                emoji_frequency: "适度",
-                particles: document.getElementById('persona-particles').value.split(',').map(p => p.trim()).filter(p => p),
-                expressions: document.getElementById('persona-expressions').value.split(',').map(e => e.trim()).filter(e => e)
-            },
-            relationship: {
-                role: document.getElementById('persona-role').value,
-                intimacy_level: document.getElementById('persona-intimacy').value,
-                behaviors: document.getElementById('persona-behaviors').value.split('\n').filter(b => b.trim())
-            }
-        };
-
-        const response = await axios.post(`${API_BASE}/config/persona`, data);
-        if (response.data.success) {
-            showToast('人格配置保存成功', 'success');
-        } else {
-            showToast('保存失败: ' + response.data.error, 'error');
-        }
-    } catch (error) {
-        showToast('保存失败: ' + error.message, 'error');
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="bi bi-save"></i> 保存配置';
-    }
-}
-
 // 加载微信配置
 async function loadWeChatConfig() {
     try {
@@ -511,12 +419,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 加载所有配置
     loadAIConfig();
-    loadPersonaConfig();
     loadWeChatConfig();
 
     // 绑定表单提交事件
     document.getElementById('ai-config-form').addEventListener('submit', saveAIConfig);
-    document.getElementById('persona-config-form').addEventListener('submit', savePersonaConfig);
     document.getElementById('wechat-config-form').addEventListener('submit', saveWeChatConfig);
 
     // 绑定测试按钮

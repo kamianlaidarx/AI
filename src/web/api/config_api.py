@@ -13,7 +13,6 @@ config_bp = Blueprint('config', __name__)
 PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
 CONFIG_DIR = PROJECT_ROOT / 'config'
 CONFIG_YAML = CONFIG_DIR / 'config.yaml'
-PERSONA_YAML = CONFIG_DIR / 'persona.yaml'
 ENV_FILE = CONFIG_DIR / '.env'
 
 
@@ -139,34 +138,6 @@ def save_ai_config():
                 return jsonify({'success': False, 'error': result['error']}), 500
 
         return jsonify({'success': True, 'message': 'AI配置保存成功'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@config_bp.route('/config/persona', methods=['GET'])
-def get_persona_config():
-    """获取人格配置"""
-    try:
-        persona = load_yaml_file(PERSONA_YAML)
-        if 'error' in persona:
-            return jsonify({'success': False, 'error': persona['error']}), 500
-
-        return jsonify({'success': True, 'data': persona})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@config_bp.route('/config/persona', methods=['POST'])
-def save_persona_config():
-    """保存人格配置"""
-    try:
-        data = request.json
-        result = save_yaml_file(PERSONA_YAML, data)
-
-        if isinstance(result, dict) and 'error' in result:
-            return jsonify({'success': False, 'error': result['error']}), 500
-
-        return jsonify({'success': True, 'message': '人格配置保存成功'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
