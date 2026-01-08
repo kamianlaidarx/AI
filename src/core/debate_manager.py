@@ -3,6 +3,7 @@
 管理群聊辩论赛的完整流程
 """
 import time
+import threading
 from enum import Enum, auto
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
@@ -39,6 +40,7 @@ class DebateSession:
     con_names: Dict[str, str] = field(default_factory=dict)
     speeches: List[Speech] = field(default_factory=list)
     start_time: float = field(default_factory=time.time)
+    last_activity: float = field(default_factory=time.time)  # 最后活动时间
     scores: Dict = field(default_factory=dict)
 
 
@@ -49,9 +51,12 @@ class DebateManager:
     START_KEYWORDS = ['开始辩论', '发起辩论', '来场辩论']
     JOIN_PRO_KEYWORDS = ['正方', '加入正方', '支持正方']
     JOIN_CON_KEYWORDS = ['反方', '加入反方', '支持反方']
-    BEGIN_KEYWORDS = ['开始', '开战', '开打']
+    BEGIN_KEYWORDS = ['开始', '开战', '开打', '开始辩论']
     END_KEYWORDS = ['结束辩论', '终止辩论', '辩论结束']
     CANCEL_KEYWORDS = ['取消辩论', '取消']
+
+    # 会话超时时间（秒）
+    SESSION_TIMEOUT = 900  # 15分钟
 
     def __init__(self, ai_engine):
         """
@@ -62,6 +67,7 @@ class DebateManager:
         """
         self.ai = ai_engine
         self.sessions: Dict[str, DebateSession] = {}  # group_id -> session
+        self.lock = threading.Lock()  # 线程锁
 
     def handle_message(self, group_id: str, user_id: str, user_name: str, content: str) -> Optional[str]:
         """
@@ -77,24 +83,35 @@ class DebateManager:
             回复内容，如果不是辩论相关消息返回None
         """
         content = content.strip()
-        session = self.sessions.get(group_id)
 
-        # 无活跃辩论时，检查是否要开始
-        if not session:
-            for kw in self.START_KEYWORDS:
-                if kw in content:
-                    return self._start_debate(group_id, user_id, user_name, content, kw)
+        with self.lock:
+            session = self.sessions.get(group_id)
+
+            # 检查会话超时
+            if session and (time.time() - session.last_activity > self.SESSION_TIMEOUT):
+                del self.sessions[group_id]
+                log.info(f"群 {group_id} 辩论已超时结束")
+                return "⏰ 辩论已超时结束，如需再次辩论请重新发起。"
+
+            # 无活跃辩论时，检查是否要开始
+            if not session:
+                for kw in self.START_KEYWORDS:
+                    if kw in content:
+                        return self._start_debate(group_id, user_id, user_name, content, kw)
+                return None
+
+            # 更新最后活动时间
+            session.last_activity = time.time()
+
+            # 根据状态处理
+            if session.state == DebateState.JOINING:
+                return self._handle_joining(session, user_id, user_name, content)
+            elif session.state == DebateState.ONGOING:
+                return self._handle_ongoing(session, user_id, user_name, content)
+            elif session.state == DebateState.JUDGING:
+                return "⏳ 正在评分中，请稍候..."
+
             return None
-
-        # 根据状态处理
-        if session.state == DebateState.JOINING:
-            return self._handle_joining(session, user_id, user_name, content)
-        elif session.state == DebateState.ONGOING:
-            return self._handle_ongoing(session, user_id, user_name, content)
-        elif session.state == DebateState.JUDGING:
-            return "⏳ 正在评分中，请稍候..."
-
-        return None
 
     def _start_debate(self, group_id: str, user_id: str, user_name: str,
                       content: str, keyword: str) -> str:
@@ -124,9 +141,13 @@ class DebateManager:
     def _handle_joining(self, session: DebateSession, user_id: str,
                         user_name: str, content: str) -> Optional[str]:
         """处理招募阶段"""
-        # 检查取消
+        is_participant = user_id in session.pro_members or user_id in session.con_members
+
+        # 检查取消（仅参与者可取消）
         for kw in self.CANCEL_KEYWORDS:
             if kw in content:
+                if not is_participant and (session.pro_members or session.con_members):
+                    return "⚠️ 只有辩论参与者才能取消辩论"
                 del self.sessions[session.group_id]
                 log.info(f"群 {session.group_id} 辩论已取消")
                 return "❌ 辩论已取消"
@@ -223,9 +244,13 @@ class DebateManager:
     def _handle_ongoing(self, session: DebateSession, user_id: str,
                         user_name: str, content: str) -> Optional[str]:
         """处理辩论进行中"""
-        # 检查结束
+        is_participant = user_id in session.pro_members or user_id in session.con_members
+
+        # 检查结束（仅参与者可结束）
         for kw in self.END_KEYWORDS:
             if kw in content:
+                if not is_participant:
+                    return "⚠️ 只有辩论参与者才能结束辩论"
                 return self._conclude_debate(session)
 
         # 记录发言（只记录参与者的）
@@ -235,7 +260,7 @@ class DebateManager:
         elif user_id in session.con_members:
             side = 'con'
 
-        if side and len(content) > 5:  # 忽略太短的消息
+        if side and len(content) >= 2:  # 记录有意义的发言
             speech = Speech(
                 user_id=user_id,
                 user_name=user_name,

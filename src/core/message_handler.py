@@ -272,17 +272,18 @@ class MessageHandler:
         # 去除@前缀后的内容（用于辩论检测）
         content_stripped = self._strip_at_prefix(content).strip()
 
-        # 优先处理辩论消息（辩论进行中的发言不需要@）
-        debate_reply = self.debate_manager.handle_message(
-            group_id=sender,
-            user_id=user_name,
-            user_name=user_name,
-            content=content_stripped
-        )
-        if debate_reply:
-            if is_group and real_sender:
-                return f"@{real_sender} {debate_reply}"
-            return debate_reply
+        # 优先处理辩论消息（仅群聊且通过test_group过滤后才处理）
+        if is_group:
+            debate_reply = self.debate_manager.handle_message(
+                group_id=sender,
+                user_id=user_name,
+                user_name=user_name,
+                content=content_stripped
+            )
+            if debate_reply:
+                if real_sender:
+                    return f"@{real_sender} {debate_reply}"
+                return debate_reply
 
         # 非辩论消息，必须@机器人才回复
         if not self._is_wake_up_message(content):
