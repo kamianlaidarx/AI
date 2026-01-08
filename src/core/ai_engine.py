@@ -129,9 +129,8 @@ class AIEngine:
             temperature=self.temperature
         )
 
-        # 提取回复内容（支持推理模型）
-        msg = response.choices[0].message
-        reply = getattr(msg, 'content', None) or getattr(msg, 'reasoning_content', None) or ''
+        # 提取回复内容
+        reply = response.choices[0].message.content or ''
         if not reply:
             log.warning("豆包 API 返回空内容")
             return "抱歉，我没有收到有效回复。"
@@ -200,9 +199,8 @@ class AIEngine:
             temperature=self.temperature
         )
 
-        # 提取回复内容（支持推理模型）
-        msg = response.choices[0].message
-        reply = getattr(msg, 'content', None) or getattr(msg, 'reasoning_content', None) or ''
+        # 提取回复内容
+        reply = response.choices[0].message.content or ''
         if not reply:
             log.warning("OpenAI API 返回空内容")
             return "抱歉，我没有收到有效回复。"

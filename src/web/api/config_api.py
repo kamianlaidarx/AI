@@ -16,16 +16,6 @@ CONFIG_YAML = CONFIG_DIR / 'config.yaml'
 ENV_FILE = CONFIG_DIR / '.env'
 
 
-def extract_reply_content(message):
-    """从消息对象中提取回复内容（支持推理模型）"""
-    content = getattr(message, 'content', None) or ''
-    if content:
-        return content
-    # 推理模型可能将内容放在 reasoning_content 中
-    reasoning = getattr(message, 'reasoning_content', None) or ''
-    return reasoning
-
-
 def load_yaml_file(file_path):
     """加载YAML文件"""
     try:
@@ -335,7 +325,7 @@ def test_api_connection():
             )
             if not response.choices:
                 return jsonify({'success': False, 'error': '豆包 API 返回了空响应'}), 500
-            reply = extract_reply_content(response.choices[0].message)
+            reply = response.choices[0].message.content
             if not reply:
                 return jsonify({'success': False, 'error': '豆包 API 返回了空响应'}), 500
 
@@ -389,7 +379,7 @@ def test_api_connection():
             )
             if not response.choices:
                 return jsonify({'success': False, 'error': 'OpenAI API 返回了空响应'}), 500
-            reply = extract_reply_content(response.choices[0].message)
+            reply = response.choices[0].message.content
             if not reply:
                 return jsonify({'success': False, 'error': 'OpenAI API 返回了空响应'}), 500
 
@@ -474,7 +464,7 @@ def test_chat():
             )
             if not response.choices:
                 return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
-            reply = extract_reply_content(response.choices[0].message)
+            reply = response.choices[0].message.content
             if not reply:
                 return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
 
@@ -535,7 +525,7 @@ def test_chat():
             )
             if not response.choices:
                 return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
-            reply = extract_reply_content(response.choices[0].message)
+            reply = response.choices[0].message.content
             if not reply:
                 return jsonify({'success': False, 'error': 'AI 返回了空响应'}), 500
 
