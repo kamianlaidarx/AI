@@ -381,11 +381,6 @@ class MessageHandler:
         # 去除首尾空白
         reply = reply.strip()
 
-        # 限制回复长度
-        max_length = config.get('wechat.max_message_length', 500)
-        if len(reply) > max_length:
-            reply = reply[:max_length] + "..."
-
         return reply
 
     def send_reply(self, to_user: str, content: str) -> bool:
