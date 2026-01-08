@@ -3,8 +3,25 @@ AI对话引擎模块
 支持多种AI模型：Claude、豆包、OpenAI等
 """
 import os
+import re
 from typing import List, Dict, Optional
 from ..utils import log, config
+
+
+def clean_markdown(text: str) -> str:
+    """清理markdown格式，转为纯文本"""
+    text = re.sub(r'\*{1,2}([^*]+)\*{1,2}', r'\1', text)
+    text = re.sub(r'_{1,2}([^_]+)_{1,2}', r'\1', text)
+    text = re.sub(r'```[a-z]*\n?', '', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^[\-\*\+]\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\d+\.\s+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+    text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', r'\1', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = '\n'.join(line.strip() for line in text.split('\n'))
+    return text.strip()
 
 
 class AIEngine:
@@ -107,6 +124,12 @@ class AIEngine:
         # 构建消息列表
         messages = []
 
+        # 添加 system prompt
+        messages.append({
+            "role": "system",
+            "content": "请参考对话历史，保持回复的连贯性。输出纯文本，不使用markdown格式。"
+        })
+
         # 添加历史上下文
         if context:
             for ctx in context:
@@ -134,6 +157,7 @@ class AIEngine:
         if not reply:
             log.warning("豆包 API 返回空内容")
             return "抱歉，我没有收到有效回复。"
+        reply = clean_markdown(reply)
         log.info(f"AI生成回复: {reply[:50]}...")
         return reply
 
@@ -161,6 +185,7 @@ class AIEngine:
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
+            system="请参考对话历史，保持回复的连贯性。输出纯文本，不使用markdown格式。",
             messages=messages
         )
 
@@ -169,6 +194,7 @@ class AIEngine:
             log.warning("Claude API 返回空内容")
             return "抱歉，我没有收到有效回复。"
         reply = response.content[0].text
+        reply = clean_markdown(reply)
         log.info(f"AI生成回复: {reply[:50]}...")
         return reply
 
@@ -176,6 +202,12 @@ class AIEngine:
         """使用OpenAI兼容API生成回复（豆包、OpenAI等）"""
         # 构建消息列表
         messages = []
+
+        # 添加 system prompt
+        messages.append({
+            "role": "system",
+            "content": "请参考对话历史，保持回复的连贯性。输出纯文本，不使用markdown格式。"
+        })
 
         # 添加历史上下文
         if context:
@@ -204,6 +236,7 @@ class AIEngine:
         if not reply:
             log.warning("OpenAI API 返回空内容")
             return "抱歉，我没有收到有效回复。"
+        reply = clean_markdown(reply)
         log.info(f"AI生成回复: {reply[:50]}...")
         return reply
 
