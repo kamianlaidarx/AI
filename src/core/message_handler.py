@@ -370,7 +370,7 @@ class MessageHandler:
 
     def _postprocess_reply(self, reply: str) -> str:
         """
-        回复后处理：压缩多余空白，保留段落结构
+        回复后处理：压缩多余空白，去除空行
 
         Args:
             reply: 原始回复内容
@@ -383,19 +383,13 @@ class MessageHandler:
         # 去除首尾空白
         reply = reply.strip()
 
-        # 将多个连续空行压缩为单个空行
-        reply = re.sub(r'\n\s*\n\s*\n+', '\n\n', reply)
-
         # 将多个连续空格压缩为单个空格
         reply = re.sub(r'[ \t]+', ' ', reply)
 
-        # 去除每行首尾空格
+        # 去除每行首尾空格，并过滤空行
         lines = reply.split('\n')
-        lines = [line.strip() for line in lines]
+        lines = [line.strip() for line in lines if line.strip()]
         reply = '\n'.join(lines)
-
-        # 再次压缩可能产生的多余空行
-        reply = re.sub(r'\n\n\n+', '\n\n', reply)
 
         return reply
 
