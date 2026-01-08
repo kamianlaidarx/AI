@@ -33,7 +33,8 @@ async function loadAIConfig() {
         if (response.data.success) {
             const data = response.data.data;
             document.getElementById('ai-provider').value = data.provider || 'doubao';
-            document.getElementById('ai-model').value = data.model || '';
+            // 保存当前模型值，等获取模型列表后再设置
+            window._currentModel = data.model || '';
             document.getElementById('ai-temperature').value = data.temperature || 0.8;
             document.getElementById('temperature-value').textContent = data.temperature || 0.8;
             document.getElementById('ai-max-tokens').value = data.max_tokens || 1000;
@@ -53,9 +54,110 @@ async function loadAIConfig() {
                 }
                 document.getElementById('openai-api-base').value = data.api_keys.openai_base || '';
             }
+
+            // 如果有保存的模型，添加到下拉框并选中
+            if (window._currentModel) {
+                const modelSelect = document.getElementById('ai-model');
+                const option = document.createElement('option');
+                option.value = window._currentModel;
+                option.textContent = window._currentModel;
+                option.selected = true;
+                modelSelect.appendChild(option);
+            }
         }
     } catch (error) {
         showToast('加载AI配置失败: ' + error.message, 'error');
+    }
+}
+
+// 获取模型列表
+async function fetchModels() {
+    const btn = document.getElementById('fetch-models-btn');
+    const originalContent = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+    try {
+        const provider = document.getElementById('ai-provider').value;
+        let apiKey = '';
+        let baseUrl = '';
+
+        // 根据provider获取对应的API Key和Base URL
+        if (provider === 'doubao') {
+            apiKey = document.getElementById('doubao-api-key').value;
+            baseUrl = document.getElementById('doubao-api-base').value;
+            // 如果输入框为空但有placeholder提示已设置，说明需要从后端获取
+            if (!apiKey && document.getElementById('doubao-api-key').placeholder.includes('已设置')) {
+                // 从后端获取保存的key
+                const configResp = await axios.get(`${API_BASE}/config/ai`);
+                if (configResp.data.success) {
+                    apiKey = configResp.data.data.api_keys?.doubao || '';
+                }
+            }
+        } else if (provider === 'claude') {
+            apiKey = document.getElementById('claude-api-key').value;
+            if (!apiKey && document.getElementById('claude-api-key').placeholder.includes('已设置')) {
+                const configResp = await axios.get(`${API_BASE}/config/ai`);
+                if (configResp.data.success) {
+                    apiKey = configResp.data.data.api_keys?.claude || '';
+                }
+            }
+        } else if (provider === 'openai') {
+            apiKey = document.getElementById('openai-api-key').value;
+            baseUrl = document.getElementById('openai-api-base').value;
+            if (!apiKey && document.getElementById('openai-api-key').placeholder.includes('已设置')) {
+                const configResp = await axios.get(`${API_BASE}/config/ai`);
+                if (configResp.data.success) {
+                    apiKey = configResp.data.data.api_keys?.openai || '';
+                }
+            }
+        }
+
+        if (!apiKey) {
+            showToast('请先输入API Key', 'error');
+            return;
+        }
+
+        const response = await axios.post(`${API_BASE}/config/models`, {
+            provider: provider,
+            api_key: apiKey,
+            base_url: baseUrl
+        });
+
+        if (response.data.success) {
+            const models = response.data.data.models;
+            const modelSelect = document.getElementById('ai-model');
+            const currentModel = modelSelect.value;
+
+            // 清空并重新填充下拉框
+            modelSelect.innerHTML = '';
+
+            if (models.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = '未找到可用模型';
+                modelSelect.appendChild(option);
+            } else {
+                models.forEach(model => {
+                    const option = document.createElement('option');
+                    option.value = model;
+                    option.textContent = model;
+                    if (model === currentModel || model === window._currentModel) {
+                        option.selected = true;
+                    }
+                    modelSelect.appendChild(option);
+                });
+            }
+
+            showToast(`成功获取 ${models.length} 个模型`, 'success');
+        } else {
+            showToast('获取模型列表失败: ' + response.data.error, 'error');
+        }
+    } catch (error) {
+        showToast('获取模型列表失败: ' + error.message, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalContent;
     }
 }
 
@@ -419,6 +521,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 绑定测试按钮
     document.getElementById('test-api-btn').addEventListener('click', testAPIConnection);
+
+    // 绑定获取模型按钮
+    document.getElementById('fetch-models-btn').addEventListener('click', fetchModels);
 
     // 绑定测试会话按钮
     document.getElementById('test-chat-send').addEventListener('click', sendTestMessage);

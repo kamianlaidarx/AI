@@ -47,15 +47,12 @@ class MessageHandler:
         self.admins_file = Path(config.get('group_chat.admins_file', 'data/group_admins.json'))
         self._load_admins()
 
-        # 从 persona 获取机器人名字
-        self.bot_name = self.ai.persona.config.get('name', '')
-
-        # 优先使用微信登录昵称（用于@检测）
+        # 使用微信登录昵称（用于@检测）
         self.wechat_nickname = getattr(wechat_client, 'nickname', None)
         if self.wechat_nickname:
             log.info(f"使用微信昵称检测@消息: {self.wechat_nickname}")
         else:
-            log.info(f"未获取到微信昵称，使用persona名字: {self.bot_name}")
+            log.warning("未获取到微信昵称，群聊@检测可能无法正常工作")
 
         # 初始化主动对话管理器
         proactive_config = config.get('proactive_chat', {
@@ -70,7 +67,7 @@ class MessageHandler:
             config=proactive_config
         )
 
-        log.info(f"消息处理器初始化成功，机器人名字: {self.bot_name}")
+        log.info(f"消息处理器初始化成功")
 
     def _load_admins(self):
         """从文件加载群管理员信息"""
@@ -132,14 +129,12 @@ class MessageHandler:
         Returns:
             是否是唤醒消息
         """
-        # 优先使用微信昵称，其次使用 persona 名字
-        name_to_check = self.wechat_nickname or self.bot_name
-        if not name_to_check:
-            log.debug("bot_name 和 wechat_nickname 均未设置，无法检测唤醒消息")
+        if not self.wechat_nickname:
+            log.debug("wechat_nickname 未设置，无法检测唤醒消息")
             return False
-        wake_pattern = f"@{name_to_check}"
+        wake_pattern = f"@{self.wechat_nickname}"
         is_wake = wake_pattern in content
-        log.debug(f"唤醒检测: name='{name_to_check}', pattern='{wake_pattern}', content='{content}', result={is_wake}")
+        log.debug(f"唤醒检测: name='{self.wechat_nickname}', pattern='{wake_pattern}', content='{content}', result={is_wake}")
         return is_wake
 
     def _is_end_session_message(self, content: str) -> bool:
@@ -168,10 +163,8 @@ class MessageHandler:
         Returns:
             去除@前缀后的消息
         """
-        # 优先使用微信昵称，其次使用 persona 名字
-        name_to_check = self.wechat_nickname or self.bot_name
-        if name_to_check:
-            wake_pattern = f"@{name_to_check}"
+        if self.wechat_nickname:
+            wake_pattern = f"@{self.wechat_nickname}"
             content = content.replace(wake_pattern, '').strip()
         return content
 
@@ -180,7 +173,7 @@ class MessageHandler:
         判断是否应该回复该发送者
 
         Args:
-            sender: 发送者名称（群名或好友名）
+            sender: 发送者名称（群名）
             content: 消息内容
             real_sender: 实际发送者（群成员名）
 
@@ -192,21 +185,14 @@ class MessageHandler:
             log.info(f"发送者 {sender} 在黑名单中，忽略消息")
             return False
 
-        # 检查白名单（如果白名单不为空，私聊直接响应）
-        if self.whitelist and sender in self.whitelist:
-            return True
-
-        # 群聊逻辑：必须 @ 机器人才回复
-        if self.group_chat_enabled and self._is_group_message(sender, real_sender):
-            # 必须 @ 机器人才响应
-            if not self._is_wake_up_message(content):
-                log.debug(f"群 {sender} 消息未@机器人，忽略")
-                return False
-            return True
-
-        # 白名单为空时的默认行为
+        # 检查白名单
         if self.whitelist and sender not in self.whitelist:
             log.info(f"发送者 {sender} 不在白名单中，忽略消息")
+            return False
+
+        # 群聊模式：必须@机器人才回复
+        if not self._is_wake_up_message(content):
+            log.debug(f"消息未@机器人，忽略: {sender}")
             return False
 
         return True

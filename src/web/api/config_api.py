@@ -228,6 +228,72 @@ def save_wechat_config():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@config_bp.route('/config/models', methods=['POST'])
+def fetch_models():
+    """获取模型列表"""
+    try:
+        data = request.json or {}
+        provider = data.get('provider', 'openai')
+        api_key = data.get('api_key', '')
+        base_url = data.get('base_url', '')
+
+        if not api_key:
+            return jsonify({'success': False, 'error': 'API Key 未提供'}), 400
+
+        models = []
+
+        if provider == 'doubao':
+            if not base_url:
+                return jsonify({'success': False, 'error': 'API Base URL 未配置'}), 400
+            try:
+                from volcenginesdkarkruntime import Ark
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 volcenginesdkarkruntime 库'}), 500
+
+            client = Ark(api_key=api_key, base_url=base_url)
+            response = client.models.list()
+            models = [model.id for model in response.data]
+
+        elif provider == 'claude':
+            # Claude 没有官方模型列表API，返回常用模型
+            models = [
+                'claude-3-5-sonnet-20241022',
+                'claude-3-5-haiku-20241022',
+                'claude-3-opus-20240229',
+                'claude-3-sonnet-20240229',
+                'claude-3-haiku-20240307'
+            ]
+
+        elif provider == 'openai':
+            if not base_url:
+                return jsonify({'success': False, 'error': 'API Base URL 未配置'}), 400
+            try:
+                from openai import OpenAI
+            except ImportError:
+                return jsonify({'success': False, 'error': '未安装 openai 库'}), 500
+
+            client = OpenAI(api_key=api_key, base_url=base_url)
+            response = client.models.list()
+            models = [model.id for model in response.data]
+
+        else:
+            return jsonify({'success': False, 'error': f'不支持的提供商: {provider}'}), 400
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'models': models
+            }
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'error_type': e.__class__.__name__
+        }), 500
+
+
 @config_bp.route('/config/test', methods=['POST'])
 def test_api_connection():
     """测试API连接"""
@@ -261,10 +327,6 @@ def test_api_connection():
         test_message = data.get('test_message', '你好，这是一条测试消息。请简短回复确认收到。')
         api_keys = data.get('api_keys', {})
 
-        from ...personality import Persona
-        persona = Persona()
-        system_prompt = persona.get_system_prompt()
-
         if provider == 'doubao':
             api_key = api_keys.get('doubao') or env_config.get('DOUBAO_API_KEY', '')
             base_url = api_keys.get('doubao_base') or env_config.get('DOUBAO_API_BASE', '')
@@ -282,7 +344,6 @@ def test_api_connection():
 
             client = Ark(api_key=api_key, base_url=base_url)
             messages = [
-                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": test_message}
             ]
             response = client.chat.completions.create(
@@ -312,7 +373,6 @@ def test_api_connection():
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                system=system_prompt,
                 messages=[{"role": "user", "content": test_message}]
             )
             if not response.content or not response.content[0].text:
@@ -336,7 +396,6 @@ def test_api_connection():
 
             client = OpenAI(api_key=api_key, base_url=base_url)
             messages = [
-                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": test_message}
             ]
             response = client.chat.completions.create(
@@ -401,10 +460,6 @@ def test_chat():
         max_tokens = int(ai_config.get('max_tokens', 1000))
         api_keys = data.get('api_keys', {})
 
-        from ...personality import Persona
-        persona = Persona()
-        system_prompt = persona.get_system_prompt()
-
         if provider == 'doubao':
             api_key = env_config.get('DOUBAO_API_KEY', '')
             base_url = api_keys.get('doubao_base') or env_config.get('DOUBAO_API_BASE', '')
@@ -421,7 +476,7 @@ def test_chat():
                 return jsonify({'success': False, 'error': '未安装 volcenginesdkarkruntime 库'}), 500
 
             client = Ark(api_key=api_key, base_url=base_url)
-            messages = [{"role": "system", "content": system_prompt}]
+            messages = []
             for ctx in context:
                 messages.append({"role": ctx["role"], "content": ctx["content"]})
             messages.append({"role": "user", "content": message})
@@ -458,7 +513,6 @@ def test_chat():
                 model=model,
                 max_tokens=max_tokens,
                 temperature=temperature,
-                system=system_prompt,
                 messages=messages
             )
             if not response.content or not response.content[0].text:
@@ -481,7 +535,7 @@ def test_chat():
                 return jsonify({'success': False, 'error': '未安装 openai 库'}), 500
 
             client = OpenAI(api_key=api_key, base_url=base_url)
-            messages = [{"role": "system", "content": system_prompt}]
+            messages = []
             for ctx in context:
                 messages.append({"role": ctx["role"], "content": ctx["content"]})
             messages.append({"role": "user", "content": message})

@@ -5,7 +5,6 @@ AI对话引擎模块
 import os
 from typing import List, Dict, Optional
 from ..utils import log, config
-from ..personality import Persona
 
 
 class AIEngine:
@@ -17,8 +16,6 @@ class AIEngine:
         self.model = config.get('ai.model', 'doubao-pro-32k')
         self.max_tokens = config.get('ai.max_tokens', 1000)
         self.temperature = config.get('ai.temperature', 0.8)
-
-        self.persona = Persona()
 
         # 根据provider初始化不同的客户端
         if self.provider == 'doubao':
@@ -110,13 +107,6 @@ class AIEngine:
         # 构建消息列表
         messages = []
 
-        # 添加系统提示词
-        system_prompt = self.persona.get_system_prompt()
-        messages.append({
-            "role": "system",
-            "content": system_prompt
-        })
-
         # 添加历史上下文
         if context:
             for ctx in context:
@@ -163,15 +153,11 @@ class AIEngine:
             "content": message
         })
 
-        # 获取系统提示词
-        system_prompt = self.persona.get_system_prompt()
-
         # 调用Claude API
         response = self.client.messages.create(
             model=self.model,
             max_tokens=self.max_tokens,
             temperature=self.temperature,
-            system=system_prompt,
             messages=messages
         )
 
@@ -184,13 +170,6 @@ class AIEngine:
         """使用OpenAI兼容API生成回复（豆包、OpenAI等）"""
         # 构建消息列表
         messages = []
-
-        # 添加系统提示词
-        system_prompt = self.persona.get_system_prompt()
-        messages.append({
-            "role": "system",
-            "content": system_prompt
-        })
 
         # 添加历史上下文
         if context:
@@ -218,12 +197,6 @@ class AIEngine:
         reply = response.choices[0].message.content
         log.info(f"AI生成回复: {reply[:50]}...")
         return reply
-
-
-    def reload_persona(self):
-        """重新加载人格配置"""
-        self.persona.reload()
-        log.info("人格配置已重新加载")
 
     def set_model(self, model_name: str) -> bool:
         """

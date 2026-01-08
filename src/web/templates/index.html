@@ -61,11 +61,17 @@
                                     </div>
 
                                     <div class="row mb-3">
-                                        <label class="col-sm-2 col-form-label">模型/Endpoint ID</label>
-                                        <div class="col-sm-10">
-                                            <input type="text" class="form-control" id="ai-model" name="model"
-                                                   placeholder="例如: ep-20251226192412-8kff2">
-                                            <div class="form-text">豆包填写Endpoint ID，其他填写模型名称</div>
+                                        <label class="col-sm-2 col-form-label">模型</label>
+                                        <div class="col-sm-8">
+                                            <select class="form-select" id="ai-model" name="model">
+                                                <option value="">请先获取模型列表</option>
+                                            </select>
+                                            <div class="form-text">点击"获取模型"按钮加载可用模型列表</div>
+                                        </div>
+                                        <div class="col-sm-2">
+                                            <button type="button" class="btn btn-outline-primary w-100" id="fetch-models-btn">
+                                                <i class="bi bi-arrow-repeat"></i> 获取模型
+                                            </button>
                                         </div>
                                     </div>
 

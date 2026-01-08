@@ -28,7 +28,7 @@ storage:
 
 # 主动对话配置
 proactive_chat:
-  enabled: true              # 是否启用主动对话
+  enabled: false             # 是否启用主动对话（已关闭）
   idle_time: 3600            # 闲置多久后主动聊天（秒），默认1小时
   min_interval: 1800         # 最小间隔时间（秒），默认30分钟
   max_daily_proactive: 3     # 每天最多主动几次
