@@ -162,6 +162,9 @@ class AIEngine:
         )
 
         # 提取回复内容
+        if not response.content:
+            log.warning("Claude API 返回空内容")
+            return "抱歉，我没有收到有效回复。"
         reply = response.content[0].text
         log.info(f"AI生成回复: {reply[:50]}...")
         return reply

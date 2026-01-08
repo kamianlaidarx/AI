@@ -113,7 +113,7 @@ def save_ai_config():
         config['ai']['model'] = data.get('model', '')
         config['ai']['temperature'] = float(data.get('temperature', 0.8))
         config['ai']['max_tokens'] = int(data.get('max_tokens', 1000))
-        config['ai']['max_context_messages'] = int(data.get('max_context_messages', 20))
+        config['ai']['max_context_messages'] = int(data.get('max_context_messages', 500))
 
         result = save_yaml_file(CONFIG_YAML, config)
         if isinstance(result, dict) and 'error' in result:
