@@ -1,3 +1,7 @@
+**本项目基于原作 [https://github.com/TCSG996/AILive](https://github.com/TCSG996/AILive) 做了个性化修改，感谢！**
+
+---
+
 # AILive - 微信群聊机器人
 
 一个基于Python的微信群聊AI机器人，支持多种AI模型（豆包/Claude/OpenAI）。
