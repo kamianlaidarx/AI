@@ -11,6 +11,7 @@ from ..utils import log, config, ContextManager
 from .wechat_client import WeChatClient
 from .ai_engine import AIEngine
 from .proactive_chat import ProactiveChatManager
+from .debate_manager import DebateManager
 
 
 class MessageHandler:
@@ -66,6 +67,9 @@ class MessageHandler:
             context_manager=self.context_manager,
             config=proactive_config
         )
+
+        # 初始化辩论管理器
+        self.debate_manager = DebateManager(ai_engine=self.ai)
 
         log.info(f"消息处理器初始化成功")
 
@@ -252,19 +256,46 @@ class MessageHandler:
         Returns:
             回复内容，如果不需要回复则返回None
         """
-        # 检查是否应该回复
-        if not self.should_reply(sender, content, real_sender):
+        is_group = self._is_group_message(sender, real_sender)
+        user_name = real_sender or sender
+
+        # 检查黑名单
+        if sender in self.blacklist:
+            log.info(f"发送者 {sender} 在黑名单中，忽略消息")
+            return None
+
+        # 检查白名单
+        if self.whitelist and sender not in self.whitelist:
+            log.info(f"发送者 {sender} 不在白名单中，忽略消息")
+            return None
+
+        # 去除@前缀后的内容（用于辩论检测）
+        content_stripped = self._strip_at_prefix(content).strip()
+
+        # 优先处理辩论消息（辩论进行中的发言不需要@）
+        debate_reply = self.debate_manager.handle_message(
+            group_id=sender,
+            user_id=user_name,
+            user_name=user_name,
+            content=content_stripped
+        )
+        if debate_reply:
+            if is_group and real_sender:
+                return f"@{real_sender} {debate_reply}"
+            return debate_reply
+
+        # 非辩论消息，必须@机器人才回复
+        if not self._is_wake_up_message(content):
+            log.debug(f"消息未@机器人，忽略: {sender}")
             return None
 
         # 群聊时，记录首个唤醒者为管理员
-        is_group = self._is_group_message(sender, real_sender)
         if is_group and real_sender:
             self._set_admin(sender, real_sender)
 
         # 处理命令
-        cmd_result = self._handle_command(sender, content, real_sender)
+        cmd_result = self._handle_command(sender, content_stripped, real_sender)
         if cmd_result is not None:
-            # 群聊命令回复也 @ 发送者
             if is_group and real_sender:
                 return f"@{real_sender} {cmd_result}"
             return cmd_result
@@ -278,9 +309,8 @@ class MessageHandler:
                 return f"@{real_sender} {reply}"
             return reply
 
-        # 消息预处理（去除@前缀）
-        processed_content = self._preprocess_message(content)
-        processed_content = self._strip_at_prefix(processed_content)
+        # 消息预处理
+        processed_content = self._preprocess_message(content_stripped)
 
         if not processed_content:
             return None
